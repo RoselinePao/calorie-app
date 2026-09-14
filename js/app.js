@@ -184,7 +184,6 @@ function setMultiplier(m) {
   document.querySelectorAll('.portion').forEach(b => b.classList.toggle('active', Number(b.dataset.m) === m));
   $('pickKcal').textContent = round(picked.kcal * m);
 }
-document.querasAll = null;
 document.querySelectorAll('.portion').forEach(b => (b.onclick = () => setMultiplier(Number(b.dataset.m))));
 $('customMult').oninput = e => { const m = Number(e.target.value); if (m > 0) setMultiplier(m); };
 $('backBtn').onclick = () => showStep('stepSearch');
