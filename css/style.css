@@ -115,3 +115,10 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 
 .toast { position: fixed; left: 50%; bottom: calc(100px + var(--safe-bottom)); transform: translateX(-50%);
   background: var(--accent-dark); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 14px; z-index: 20; }
+
+/* ── 帳號與登入（v4 雲端同步） ── */
+.auth { margin: 4px 14px 0; }
+.auth .search { margin-top: 8px; }
+.account { flex-basis: 100%; border-top: 2px dotted var(--line); padding-top: 8px; margin-top: 4px; }
+[hidden] { display: none !important; }   /* 讓 hidden 屬性永遠贏過任何 display 設定 */
+.account .link-btn { white-space: nowrap; }

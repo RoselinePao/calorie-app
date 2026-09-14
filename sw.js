@@ -1,28 +1,43 @@
-// sw.js ── service worker（守門員）。第一次開啟時把檔案存進手機，之後離線也能用。
+// sw.js v4 ── service worker（守門員）。第一次開啟時把檔案存進手機，之後離線也能用。
 // 每次改程式要把 VERSION 改一個新字串，手機才會換新版。
-const VERSION = 'v3.0-pig-2026-09-14';
+const VERSION = 'v4.0-cloud-2026-09-14';
 const FILES = [
   './', './index.html', './css/style.css',
-  './js/app.js', './js/storage.js', './js/foods.js',
+  './js/app.js', './js/storage.js', './js/foods.js', './js/firebase-config.js',
   './data/foods.json', './manifest.json',
   './icons/icon-192.png', './icons/icon-512.png',
   './assets/pig-hero.png', './assets/pig-empty.png',
 ];
+const RUNTIME = VERSION + '-runtime';   // Firebase 程式庫等外部檔：第一次抓到就存起來
 
-// 安裝：把清單裡的檔案全部下載存進快取
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
 
-// 啟用：把舊版本的快取清掉
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
+    caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== RUNTIME).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
-// 攔截每次請求：先給快取，沒有再上網抓
 self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  // Firebase 的資料連線（firestore / identitytoolkit）不要攔，交給 SDK 自己處理離線
+  if (url.hostname.endsWith('googleapis.com') || url.hostname.endsWith('firebaseio.com')) return;
+
+  // 外部程式庫（www.gstatic.com）：有存就用存的，沒存就抓回來順手存下
+  if (url.hostname === 'www.gstatic.com') {
+    e.respondWith(caches.open(RUNTIME).then(async c => {
+      const hit = await c.match(e.request);
+      if (hit) return hit;
+      const res = await fetch(e.request);
+      if (res.ok) c.put(e.request, res.clone());
+      return res;
+    }));
+    return;
+  }
+
+  // 自己的檔案：先給快取，沒有再上網抓
   e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request)));
 });

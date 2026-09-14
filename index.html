@@ -23,7 +23,20 @@
     <button id="nextDay" class="icon-btn" aria-label="後一天">&rsaquo;</button>
   </header>
 
-  <main>
+  <!-- 登入卡：只在雲端模式且尚未登入時出現 -->
+  <section id="authCard" class="card auth" hidden>
+    <h2 class="section-title">登入後，紀錄會同步到雲端</h2>
+    <p class="muted small">手機、電腦都看同一份；刪掉圖示或換手機也不會消失。</p>
+    <input id="authEmail" class="search" type="email" placeholder="Email" autocomplete="username">
+    <input id="authPassword" class="search" type="password" placeholder="密碼（至少 6 個字）" autocomplete="current-password">
+    <div class="row gap">
+      <button id="signUpBtn" class="tool-btn">第一次用，註冊</button>
+      <button id="signInBtn" class="primary">登入</button>
+    </div>
+    <button id="resetBtn" class="link-btn">忘記密碼</button>
+  </section>
+
+  <main id="appMain">
     <section class="summary card">
       <div class="summary-row">
         <div>
@@ -51,6 +64,11 @@
     <section class="card tools">
       <button id="exportBtn" class="tool-btn">匯出備份</button>
       <label class="tool-btn">匯入備份<input id="importFile" type="file" accept="application/json" hidden></label>
+      <div id="accountRow" class="row account" hidden>
+        <span class="muted small">已登入 <b id="accountEmail"></b></span>
+        <button id="signOutBtn" class="link-btn">登出</button>
+      </div>
+      <div class="muted small" id="syncInfo"></div>
       <div class="muted small" id="dbInfo">食物資料庫載入中…</div>
     </section>
   </main>
