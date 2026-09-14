@@ -1,6 +1,6 @@
 // sw.js v4 ── service worker（守門員）。第一次開啟時把檔案存進手機，之後離線也能用。
 // 每次改程式要把 VERSION 改一個新字串，手機才會換新版。
-const VERSION = 'v5.2-pigfab-2026-09-14';
+const VERSION = 'v6.0-quick-2026-09-14';
 const FILES = [
   './', './index.html', './css/style.css',
   './js/app.js', './js/storage.js', './js/foods.js', './js/firebase-config.js',

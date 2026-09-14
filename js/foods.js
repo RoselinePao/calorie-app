@@ -1,5 +1,5 @@
-// foods.js ── 食物資料庫層：負責載入 foods.json 並提供搜尋。
-// 資料庫更新只要換 data/foods.json，這裡不用改。
+// foods.js v2 ── 食物資料庫層：載入 foods.json 並提供搜尋。
+// v2：搜尋時可以把「我的食物」一起納入，且排在前面。
 
 let foods = [];
 
@@ -9,23 +9,28 @@ export async function loadFoods() {
   return foods.length;
 }
 
-// 把字串標準化：去空白、轉小寫，讓「珍奶」「珍 奶」都搜得到
 const norm = s => (s || '').toLowerCase().replace(/\s+/g, '');
 
-// 搜尋：名稱、別名、品牌都比對；名稱開頭命中的排前面
-export function searchFoods(query, limit = 30) {
-  const q = norm(query);
-  if (!q) return [];
-  const scored = [];
-  for (const f of foods) {
+// 對一份清單打分：名稱開頭命中 3 分、別名或品牌開頭 2 分、包含 1 分
+function scoreList(list, q, bonus = 0) {
+  const out = [];
+  for (const f of list) {
     const name = norm(f.name);
     const hay = [name, norm(f.brand), ...(f.aliases || []).map(norm)];
     let score = 0;
     if (name.startsWith(q)) score = 3;
     else if (hay.some(h => h.startsWith(q))) score = 2;
     else if (hay.some(h => h.includes(q))) score = 1;
-    if (score) scored.push({ f, score });
+    if (score) out.push({ f, score: score + bonus });
   }
+  return out;
+}
+
+// 搜尋：extra 是使用者自己的食物，命中時多加 5 分，永遠排在資料庫之前
+export function searchFoods(query, limit = 30, extra = []) {
+  const q = norm(query);
+  if (!q) return [];
+  const scored = [...scoreList(extra, q, 5), ...scoreList(foods, q)];
   return scored.sort((a, b) => b.score - a.score).slice(0, limit).map(x => x.f);
 }
 

@@ -1,21 +1,23 @@
-// app.js v2 ── 畫面與流程。負責「使用者按了什麼 → 呼叫哪一層 → 更新畫面」。
+// app.js v3 ── 畫面與流程。負責「使用者按了什麼 → 呼叫哪一層 → 更新畫面」。
 // 不直接碰 localStorage 或 Firebase，一律透過 storage.js 與 foods.js。
+// v3 新增：最近吃過 / 常吃 快速鍵、我的食物、找不到回報。
 
 import { initStorage, storage, exportAll, importAll } from './storage.js';
-import { loadFoods, searchFoods } from './foods.js';
+import { loadFoods, searchFoods, getFood } from './foods.js';
 
 // ---------- 小工具 ----------
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
 const toKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const round = n => Math.round(n);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 let currentDate = new Date();
 let picked = null;
 let multiplier = 1;
-let entries = [];            // 目前顯示這一天的紀錄（由 storage 推送過來）
-let unsubDay = null;         // 取消「看某一天」的訂閱
-let unsubSettings = null;    // 取消「看目標熱量」的訂閱
+let entries = [];            // 目前顯示這一天的紀錄
+let myFoods = [];            // 使用者自己存的食物
+let unsubDay = null, unsubSettings = null, unsubMyFoods = null;
 let user = null;
 
 function toast(msg) {
@@ -24,7 +26,7 @@ function toast(msg) {
   clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2200);
 }
 
-// ---------- 訂閱某一天：資料一變，畫面自動重畫 ----------
+// ---------- 訂閱某一天 ----------
 function watchDay() {
   if (unsubDay) unsubDay();
   unsubDay = storage.subscribeDay(toKey(currentDate), list => { entries = list; render(); });
@@ -60,8 +62,8 @@ function render() {
     li.className = 'entry';
     li.innerHTML = `
       <div class="entry-main">
-        <div class="entry-name">${e.name}</div>
-        <div class="entry-sub">${e.portionLabel || ''}</div>
+        <div class="entry-name">${esc(e.name)}</div>
+        <div class="entry-sub">${esc(e.portionLabel || '')}</div>
       </div>
       <div class="entry-kcal">${round(e.kcal)} kcal</div>
       <button class="del" aria-label="刪除">✕</button>`;
@@ -83,11 +85,58 @@ $('goalBtn').onclick = async () => {
   if (v !== null && n > 0) { await storage.saveSettings({ goalKcal: n }); render(); }
 };
 
+// ---------- 從一筆紀錄還原出「一份是多少」的食物，給快速鍵用 ----------
+function foodFromEntry(e) {
+  if (e.foodId) {
+    const f = getFood(e.foodId) || myFoods.find(m => m.id === e.foodId);
+    if (f) return f;
+  }
+  // 舊紀錄或自訂：用紀錄裡存的單位值；再舊的沒有單位值就把整筆當一份
+  return { id: e.foodId || null, name: e.name, unit_desc: e.unitDesc || '1 份',
+    kcal: e.unitKcal ?? e.kcal, protein_g: e.unitProtein ?? null, carb_g: e.unitCarb ?? null, fat_g: e.unitFat ?? null, brand: null };
+}
+
+// ---------- 快速鍵：最近吃過、常吃 ----------
+async function renderQuick() {
+  const box = $('quick');
+  box.innerHTML = '';
+  let all = [];
+  try { all = await storage.allEntries(); } catch { return; }
+  if (!all.length) return;
+  const since = Date.now() - 60 * 86400000;           // 只看最近 60 天
+  const recentList = all.filter(e => e.ts > since).sort((a, b) => b.ts - a.ts);
+  const seen = new Set(), recent = [], count = new Map();
+  for (const e of recentList) {
+    const k = e.foodId || e.name;
+    count.set(k, (count.get(k) || 0) + 1);
+    if (!seen.has(k) && recent.length < 8) { seen.add(k); recent.push(e); }
+  }
+  const frequent = [...seen].map(k => recentList.find(e => (e.foodId || e.name) === k))
+    .sort((a, b) => count.get(b.foodId || b.name) - count.get(a.foodId || a.name)).slice(0, 8);
+
+  const section = (title, items) => {
+    if (!items.length) return;
+    const h = document.createElement('div'); h.className = 'quick-title'; h.textContent = title; box.appendChild(h);
+    const row = document.createElement('div'); row.className = 'chips';
+    for (const e of items) {
+      const f = foodFromEntry(e);
+      const b = document.createElement('button'); b.className = 'chip';
+      b.innerHTML = `${esc(f.name)} <span class="chip-kcal">${round(f.kcal)}</span>`;
+      b.onclick = () => pickFood(f);
+      row.appendChild(b);
+    }
+    box.appendChild(row);
+  };
+  section('最近吃過', recent);
+  section('常吃', frequent);
+}
+
 // ---------- 新增面板 ----------
 const sheet = $('sheet');
 function openSheet() {
   sheet.hidden = false; showStep('stepSearch');
-  $('searchInput').value = ''; $('results').innerHTML = '';
+  $('searchInput').value = ''; $('results').innerHTML = ''; $('noResult').hidden = true;
+  $('quick').hidden = false; renderQuick();
   setTimeout(() => $('searchInput').focus(), 50);
 }
 function closeSheet() { sheet.hidden = true; picked = null; }
@@ -96,19 +145,32 @@ $('addBtn').onclick = openSheet;
 sheet.querySelector('[data-close]').onclick = closeSheet;
 
 $('searchInput').oninput = e => {
+  const q = e.target.value.trim();
   const ul = $('results'); ul.innerHTML = '';
-  for (const f of searchFoods(e.target.value)) {
+  $('quick').hidden = q.length > 0;               // 一開始打字就收起快速鍵
+  const hits = q ? searchFoods(q, 30, myFoods) : [];
+  $('noResult').hidden = !(q.length >= 2 && hits.length === 0);
+  $('reportText').textContent = q;
+  for (const f of hits) {
     const li = document.createElement('li');
     li.className = 'result';
     li.innerHTML = `
       <div>
-        <div class="result-name">${f.name}</div>
-        <div class="result-sub">${f.brand ? f.brand + ' ・ ' : ''}${f.unit_desc}</div>
+        <div class="result-name">${esc(f.name)}</div>
+        <div class="result-sub">${f.brand ? esc(f.brand) + ' ・ ' : ''}${esc(f.unit_desc)}</div>
       </div>
       <div class="result-kcal">${round(f.kcal)} kcal</div>`;
     li.onclick = () => pickFood(f);
     ul.appendChild(li);
   }
+};
+
+// 找不到 → 回報，並直接跳到自訂輸入
+$('reportBtn').onclick = async () => {
+  const q = $('searchInput').value.trim();
+  try { await storage.reportMissing(q); toast('已回報，謝謝！先用自訂輸入吧'); }
+  catch (err) { console.warn(err); toast('回報沒送出，先用自訂輸入'); }
+  openCustom(q);
 };
 
 function pickFood(f) {
@@ -122,30 +184,43 @@ function setMultiplier(m) {
   document.querySelectorAll('.portion').forEach(b => b.classList.toggle('active', Number(b.dataset.m) === m));
   $('pickKcal').textContent = round(picked.kcal * m);
 }
+document.querasAll = null;
 document.querySelectorAll('.portion').forEach(b => (b.onclick = () => setMultiplier(Number(b.dataset.m))));
 $('customMult').oninput = e => { const m = Number(e.target.value); if (m > 0) setMultiplier(m); };
 $('backBtn').onclick = () => showStep('stepSearch');
 
+// 確認加入：除了算好的總量，也把「一份是多少」存進紀錄，快速鍵才能還原
+async function addEntryFromFood(f, m) {
+  const scale = v => (v == null ? null : v * m);
+  await storage.add({
+    date: toKey(currentDate), foodId: f.id, name: f.name,
+    portionLabel: `${m} × ${f.unit_desc}`, kcal: f.kcal * m,
+    protein_g: scale(f.protein_g), carb_g: scale(f.carb_g), fat_g: scale(f.fat_g),
+    unitDesc: f.unit_desc, unitKcal: f.kcal, unitProtein: f.protein_g ?? null, unitCarb: f.carb_g ?? null, unitFat: f.fat_g ?? null,
+  });
+}
 $('confirmBtn').onclick = async () => {
   if (!picked) return;
-  const m = multiplier;
-  const scale = v => (v == null ? null : v * m);
-  const addedName = picked.name;
-  await storage.add({
-    date: toKey(currentDate), foodId: picked.id, name: picked.name,
-    portionLabel: `${m} × ${picked.unit_desc}`, kcal: picked.kcal * m,
-    protein_g: scale(picked.protein_g), carb_g: scale(picked.carb_g), fat_g: scale(picked.fat_g),
-  });
-  closeSheet(); toast(`已加入 ${addedName}`);
+  const name = picked.name;
+  await addEntryFromFood(picked, multiplier);
+  closeSheet(); toast(`已加入 ${name}`);
 };
 
-$('customBtn').onclick = () => { showStep('stepCustom'); $('customName').value = ''; $('customKcal').value = ''; $('customName').focus(); };
+// 自訂食物：可選擇存進「我的食物」，下次搜得到
+function openCustom(prefill = '') {
+  showStep('stepCustom');
+  $('customName').value = prefill; $('customKcal').value = ''; $('saveMine').checked = true;
+  (prefill ? $('customKcal') : $('customName')).focus();
+}
+$('customBtn').onclick = () => openCustom('');
 $('customBack').onclick = () => showStep('stepSearch');
 $('customConfirm').onclick = async () => {
   const name = $('customName').value.trim();
   const kcal = Number($('customKcal').value);
   if (!name || !(kcal >= 0)) { toast('請填名稱和熱量'); return; }
-  await storage.add({ date: toKey(currentDate), foodId: null, name, portionLabel: '自訂', kcal });
+  let f = { id: null, name, unit_desc: '1 份', kcal, protein_g: null, carb_g: null, fat_g: null };
+  if ($('saveMine').checked) f = await storage.addMyFood(f);
+  await addEntryFromFood(f, 1);
   closeSheet(); toast(`已加入 ${name}`);
 };
 
@@ -163,7 +238,7 @@ $('importFile').onchange = async e => {
   e.target.value = '';
 };
 
-// ---------- 帳號（雲端模式才會出現） ----------
+// ---------- 帳號 ----------
 const AUTH_MSG = {
   'auth/invalid-email': 'Email 格式不對', 'auth/user-not-found': '沒有這個帳號，請先註冊',
   'auth/wrong-password': '密碼錯誤', 'auth/invalid-credential': 'Email 或密碼錯誤',
@@ -183,27 +258,26 @@ $('signOutBtn').onclick = async () => { await storage.signOut(); toast('已登�
 function applyAuth(u) {
   user = u;
   const cloud = storage.mode === 'cloud';
-  $('authCard').hidden = !cloud || !!u;          // 雲端模式且未登入 → 顯示登入卡
-  $('appMain').hidden = cloud && !u;             // 未登入時隱藏主畫面
+  $('authCard').hidden = !cloud || !!u;
+  $('appMain').hidden = cloud && !u;
   $('addBtn').hidden = cloud && !u;
   $('accountRow').hidden = !cloud || !u;
   if (u && !u.local) $('accountEmail').textContent = u.email;
   $('syncInfo').textContent = cloud ? '雲端同步：開啟' : '目前為本機模式，紀錄只存在這台裝置';
   if (!cloud || u) {
-    // 登入後才掛訂閱：目標熱量一有變化（含別台裝置改的）就重畫
+    // 登入後才掛訂閱：目標熱量、我的食物一有變化（含別台裝置改的）就更新
     if (unsubSettings) unsubSettings();
     unsubSettings = storage.onSettings(() => render());
+    if (unsubMyFoods) unsubMyFoods();
+    unsubMyFoods = storage.onMyFoods(list => { myFoods = list; });
     watchDay();
   }
 }
 
 // ---------- 啟動 ----------
 async function boot() {
-  try {
-    await initStorage();
-  } catch (e) {
-    console.error(e); $('syncInfo').textContent = '雲端連線失敗，請檢查網路後重新開啟';
-  }
+  try { await initStorage(); }
+  catch (e) { console.error(e); $('syncInfo').textContent = '雲端連線失敗，請檢查網路後重新開啟'; }
   storage.onAuth(applyAuth);
   try { const n = await loadFoods(); $('dbInfo').textContent = `食物資料庫：${n} 筆`; }
   catch { $('dbInfo').textContent = '食物資料庫載入失敗，仍可自訂輸入'; }

@@ -84,7 +84,12 @@
 
       <div id="stepSearch">
         <input id="searchInput" class="search" type="search" placeholder="搜尋食物，例如：雞胸肉、大麥克、珍奶" autocomplete="off">
+        <div id="quick" class="quick"></div>
         <ul id="results" class="results"></ul>
+        <div id="noResult" class="no-result" hidden>
+          <div class="muted small">資料庫裡找不到「<span id="reportText"></span>」</div>
+          <button id="reportBtn" class="tool-btn">回報找不到，並自己輸入</button>
+        </div>
         <button id="customBtn" class="link-btn">找不到？自己輸入名稱和熱量</button>
       </div>
 
@@ -110,7 +115,8 @@
 
       <div id="stepCustom" hidden>
         <input id="customName" class="search" type="text" placeholder="食物名稱">
-        <input id="customKcal" class="search" type="number" inputmode="numeric" placeholder="熱量 kcal">
+        <input id="customKcal" class="search" type="number" inputmode="numeric" placeholder="熱量 kcal（一份）">
+        <label class="check"><input id="saveMine" type="checkbox" checked> 存到「我的食物」，下次搜得到</label>
         <div class="row gap">
           <button id="customBack" class="tool-btn">返回</button>
           <button id="customConfirm" class="primary">加入</button>
