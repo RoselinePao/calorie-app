@@ -1,11 +1,12 @@
 // sw.js ── service worker（守門員）。第一次開啟時把檔案存進手機，之後離線也能用。
 // 每次改程式要把 VERSION 改一個新字串，手機才會換新版。
-const VERSION = 'v2.3-db3299-2026-09-14';
+const VERSION = 'v3.0-pig-2026-09-14';
 const FILES = [
   './', './index.html', './css/style.css',
   './js/app.js', './js/storage.js', './js/foods.js',
   './data/foods.json', './manifest.json',
   './icons/icon-192.png', './icons/icon-512.png',
+  './assets/pig-hero.png', './assets/pig-empty.png',
 ];
 
 // 安裝：把清單裡的檔案全部下載存進快取

@@ -1,7 +1,7 @@
 {
-  "name": "今日熱量",
-  "short_name": "今日熱量",
-  "description": "簡單記錄每天吃了什麼、大概多少熱量",
+  "name": "豬豬卡路里",
+  "short_name": "豬豬卡路里",
+  "description": "跟豬豬一起記錄每天吃了什麼、大概多少熱量",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
