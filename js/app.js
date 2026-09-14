@@ -278,6 +278,7 @@ function applyAuth(u) {
 async function boot() {
   try { await initStorage(); }
   catch (e) { console.error(e); $('syncInfo').textContent = '雲端連線失敗，請檢查網路後重新開啟'; }
+  render();                      // 登入前先畫一次，日期標題才正確
   storage.onAuth(applyAuth);
   try { const n = await loadFoods(); $('dbInfo').textContent = `食物資料庫：${n} 筆`; }
   catch { $('dbInfo').textContent = '食物資料庫載入失敗，仍可自訂輸入'; }
