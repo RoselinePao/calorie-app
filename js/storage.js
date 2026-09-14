@@ -159,7 +159,9 @@ async function makeCloudBackend(config) {
 // ---------- 對外：依設定決定用哪一種 ----------
 let backend = null;
 export async function initStorage() {
-  backend = firebaseConfig ? await makeCloudBackend(firebaseConfig) : makeLocalBackend();
+  // 網址加 ?local 可強制本機模式，方便在沒登入的情況下測試畫面
+  const forceLocal = new URLSearchParams(location.search).has('local');
+  backend = firebaseConfig && !forceLocal ? await makeCloudBackend(firebaseConfig) : makeLocalBackend();
   await backend.init();
   return backend;
 }

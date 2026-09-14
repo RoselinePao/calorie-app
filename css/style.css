@@ -134,3 +134,8 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 .no-result { text-align: center; padding: 12px 0 4px; display: grid; gap: 8px; justify-items: center; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 4px 0 6px; }
 .check input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+/* ── 小豬國王：達標 80%–100% 時出現 ── */
+.remain-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 20px; }
+.mascot-king { height: 96px; flex: 0 0 auto; margin: -28px -4px -8px 0; filter: drop-shadow(0 3px 4px rgba(205,92,92,.25)); }
+.remain-label.crowned, #remainLabel.crowned { color: var(--accent-dark); font-weight: 800; font-size: 13px; }

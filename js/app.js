@@ -52,7 +52,12 @@ function render() {
   $('barFill').style.width = Math.min(100, (sum.kcal / goal) * 100) + '%';
   $('barFill').classList.toggle('over', sum.kcal > goal);
   const remain = goal - sum.kcal;
-  $('remainLabel').textContent = remain >= 0 ? `還可以吃 ${round(remain)} kcal` : `超過目標 ${round(-remain)} kcal`;
+  const ratio = sum.kcal / goal;
+  const crowned = ratio >= 0.8 && ratio <= 1.0;          // 達標區間：80% 到 100%
+  $('remainLabel').textContent = crowned ? '今天剛剛好，榮獲小豬國王嘉勉！'
+    : remain >= 0 ? `還可以吃 ${round(remain)} kcal` : `超過目標 ${round(-remain)} kcal`;
+  $('remainLabel').classList.toggle('crowned', crowned);
+  const king = $('kingImg'); if (king) king.hidden = !crowned;
 
   const list = $('entryList');
   list.innerHTML = '';
