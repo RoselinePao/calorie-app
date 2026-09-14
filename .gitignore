@@ -1,2 +1,9 @@
 .DS_Store
 Thumbs.db
+# 原稿絕不進倉庫
+*.heic
+*.HEIC
+*.psd
+*.ai
+*.procreate
+*原稿*

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>今日熱量</title>
-  <meta name="theme-color" content="#f4a261">
+  <meta name="theme-color" content="#ffc0cb">
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,6 +16,7 @@
   <header class="topbar">
     <button id="prevDay" class="icon-btn" aria-label="前一天">&lsaquo;</button>
     <div class="date-block">
+      <img class="mascot mascot-hero" src="./assets/pig-hero.png" alt="" onerror="this.hidden=true">
       <div id="dateLabel" class="date-label">2026-09-14</div>
       <button id="todayBtn" class="link-btn">回到今天</button>
     </div>
@@ -44,7 +45,7 @@
     <section class="card">
       <h2 class="section-title">吃了什麼</h2>
       <ul id="entryList" class="entry-list"></ul>
-      <p id="emptyHint" class="muted empty">還沒有紀錄，按右下角「＋」加一筆。</p>
+      <div id="emptyHint"><img class="mascot mascot-empty" src="./assets/pig-empty.png" alt="" onerror="this.hidden=true"><p class="muted empty">還沒有紀錄，按右下角「＋」加一筆。</p></div>
     </section>
 
     <section class="card tools">
