@@ -83,6 +83,26 @@ $('prevDay').onclick = () => shiftDay(-1);
 $('nextDay').onclick = () => shiftDay(1);
 $('todayBtn').onclick = () => { currentDate = new Date(); watchDay(); };
 
+// ---------- 左右滑動切換日期 ----------
+// 手指在主畫面水平滑超過 60px、垂直位移小於 50px 就換日：往左滑看後一天，往右滑看前一天
+let touchX = null, touchY = null;
+document.addEventListener('touchstart', e => {
+  if (!sheet.hidden) return;                       // 新增面板開著時不切日期
+  touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (touchX === null) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  const dy = e.changedTouches[0].clientY - touchY;
+  touchX = touchY = null;
+  if (Math.abs(dx) < 60 || Math.abs(dy) > 50) return;
+  const main = $('appMain');
+  main.classList.remove('slide-left', 'slide-right');
+  void main.offsetWidth;                            // 重新觸發動畫
+  main.classList.add(dx < 0 ? 'slide-left' : 'slide-right');
+  shiftDay(dx < 0 ? 1 : -1);
+}, { passive: true });
+
 // ---------- 目標熱量 ----------
 $('goalBtn').onclick = async () => {
   const v = prompt('每日目標熱量（kcal）', storage.getSettings().goalKcal);

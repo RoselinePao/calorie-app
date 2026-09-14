@@ -25,7 +25,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text);
   font-family: -apple-system, "PingFang TC", "Noto Sans TC", system-ui, sans-serif; }
-body { padding-bottom: calc(160px + var(--safe-bottom));
+body { padding-bottom: calc(180px + var(--safe-bottom));
   /* 底色上鋪淡淡的圓點，像手帳紙 */
   background-image: radial-gradient(rgba(255,255,255,.55) 1.2px, transparent 1.3px);
   background-size: 18px 18px; }
@@ -80,7 +80,7 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 .tools .small { flex-basis: 100%; }
 
 /* ── 新增按鈕：亮粉紅貼紙 ── */
-.fab { position: fixed; right: 12px; bottom: calc(16px + var(--safe-bottom)); width: auto; height: 124px; padding: 0;
+.fab { position: fixed; right: 8px; bottom: calc(10px + var(--safe-bottom)); width: auto; height: 150px; padding: 0;
   border: 0; background: none; filter: drop-shadow(0 6px 10px rgba(205,92,92,.35));
   transition: transform .15s; }
 .fab img { height: 100%; display: block; }
@@ -139,3 +139,11 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 .remain-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 20px; }
 .mascot-king { height: 96px; flex: 0 0 auto; margin: -28px -4px -8px 0; filter: drop-shadow(0 3px 4px rgba(205,92,92,.25)); }
 .remain-label.crowned, #remainLabel.crowned { color: var(--accent-dark); font-weight: 800; font-size: 13px; }
+
+/* ── 左右滑動換日的小動畫 ── */
+@keyframes slideL { from { transform: translateX(28px); opacity: .4; } to { transform: none; opacity: 1; } }
+@keyframes slideR { from { transform: translateX(-28px); opacity: .4; } to { transform: none; opacity: 1; } }
+#appMain.slide-left { animation: slideL .22s ease-out; }
+#appMain.slide-right { animation: slideR .22s ease-out; }
+/* 右下角豬 v2 陰影已畫進圖裡，取消 CSS 陰影 */
+.fab { filter: none; }
