@@ -15,6 +15,7 @@ let picked = null;
 let multiplier = 1;
 let entries = [];            // 目前顯示這一天的紀錄（由 storage 推送過來）
 let unsubDay = null;         // 取消「看某一天」的訂閱
+let unsubSettings = null;    // 取消「看目標熱量」的訂閱
 let user = null;
 
 function toast(msg) {
@@ -188,7 +189,12 @@ function applyAuth(u) {
   $('accountRow').hidden = !cloud || !u;
   if (u && !u.local) $('accountEmail').textContent = u.email;
   $('syncInfo').textContent = cloud ? '雲端同步：開啟' : '目前為本機模式，紀錄只存在這台裝置';
-  if (!cloud || u) watchDay();
+  if (!cloud || u) {
+    // 登入後才掛訂閱：目標熱量一有變化（含別台裝置改的）就重畫
+    if (unsubSettings) unsubSettings();
+    unsubSettings = storage.onSettings(() => render());
+    watchDay();
+  }
 }
 
 // ---------- 啟動 ----------
@@ -198,7 +204,6 @@ async function boot() {
   } catch (e) {
     console.error(e); $('syncInfo').textContent = '雲端連線失敗，請檢查網路後重新開啟';
   }
-  storage.onSettings(() => render());
   storage.onAuth(applyAuth);
   try { const n = await loadFoods(); $('dbInfo').textContent = `食物資料庫：${n} 筆`; }
   catch { $('dbInfo').textContent = '食物資料庫載入失敗，仍可自訂輸入'; }
