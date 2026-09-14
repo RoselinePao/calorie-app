@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>今日熱量</title>
+  <meta name="theme-color" content="#f4a261">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="今日熱量">
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button id="prevDay" class="icon-btn" aria-label="前一天">&lsaquo;</button>
+    <div class="date-block">
+      <div id="dateLabel" class="date-label">2026-09-14</div>
+      <button id="todayBtn" class="link-btn">回到今天</button>
+    </div>
+    <button id="nextDay" class="icon-btn" aria-label="後一天">&rsaquo;</button>
+  </header>
+
+  <main>
+    <section class="summary card">
+      <div class="summary-row">
+        <div>
+          <div class="muted">今日累計</div>
+          <div class="big"><span id="totalKcal">0</span> <span class="unit">kcal</span></div>
+        </div>
+        <div class="goal">
+          <div class="muted">目標</div>
+          <button id="goalBtn" class="goal-btn"><span id="goalKcal">1800</span> kcal</button>
+        </div>
+      </div>
+      <div class="bar"><div id="barFill" class="bar-fill"></div></div>
+      <div id="remainLabel" class="muted small">還可以吃 1800 kcal</div>
+      <div class="macros muted small">
+        蛋白質 <b id="mProtein">0</b> g ・ 碳水 <b id="mCarb">0</b> g ・ 脂肪 <b id="mFat">0</b> g
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="section-title">吃了什麼</h2>
+      <ul id="entryList" class="entry-list"></ul>
+      <p id="emptyHint" class="muted empty">還沒有紀錄，按右下角「＋」加一筆。</p>
+    </section>
+
+    <section class="card tools">
+      <button id="exportBtn" class="tool-btn">匯出備份</button>
+      <label class="tool-btn">匯入備份<input id="importFile" type="file" accept="application/json" hidden></label>
+      <div class="muted small" id="dbInfo">食物資料庫載入中…</div>
+    </section>
+  </main>
+
+  <button id="addBtn" class="fab" aria-label="新增">＋</button>
+
+  <!-- 新增食物的底部面板 -->
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-backdrop" data-close></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+
+      <div id="stepSearch">
+        <input id="searchInput" class="search" type="search" placeholder="搜尋食物，例如：雞胸肉、大麥克、珍奶" autocomplete="off">
+        <ul id="results" class="results"></ul>
+        <button id="customBtn" class="link-btn">找不到？自己輸入名稱和熱量</button>
+      </div>
+
+      <div id="stepPortion" hidden>
+        <div class="pick-name" id="pickName"></div>
+        <div class="muted small" id="pickUnit"></div>
+        <div class="portion-grid">
+          <button class="portion" data-m="0.5">半份</button>
+          <button class="portion active" data-m="1">一份</button>
+          <button class="portion" data-m="1.5">1.5 份</button>
+          <button class="portion" data-m="2">兩份</button>
+        </div>
+        <div class="row">
+          <label class="muted small">或自訂倍數</label>
+          <input id="customMult" class="mini" type="number" step="0.1" min="0.1" value="1">
+        </div>
+        <div class="pick-kcal">約 <b id="pickKcal">0</b> kcal</div>
+        <div class="row gap">
+          <button id="backBtn" class="tool-btn">返回</button>
+          <button id="confirmBtn" class="primary">加入</button>
+        </div>
+      </div>
+
+      <div id="stepCustom" hidden>
+        <input id="customName" class="search" type="text" placeholder="食物名稱">
+        <input id="customKcal" class="search" type="number" inputmode="numeric" placeholder="熱量 kcal">
+        <div class="row gap">
+          <button id="customBack" class="tool-btn">返回</button>
+          <button id="customConfirm" class="primary">加入</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
