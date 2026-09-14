@@ -122,3 +122,4 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 .account { flex-basis: 100%; border-top: 2px dotted var(--line); padding-top: 8px; margin-top: 4px; }
 [hidden] { display: none !important; }   /* 讓 hidden 屬性永遠贏過任何 display 設定 */
 .account .link-btn { white-space: nowrap; }
+.hint { font-size: 11px; color: var(--muted); opacity: .85; margin-top: 2px; }
