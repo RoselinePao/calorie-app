@@ -205,6 +205,11 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 * { touch-action: manipulation; }
 /* 橫向不留鬆緊帶，滑動換日時整頁不會被拉著跑 */
 html, body { overscroll-behavior-x: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* v9.4：整頁只准直向捲。橫向不算捲動，瀏覽器就不會在 JS 判斷完之前
+   搶先把畫面捲起來 —— 這是「橫滑時上下不晃」能穩定生效的前提。
+   （pan-y 同時也關掉雙擊與雙指放大，和上面那段互相補強。）
+   寫在 * 後面，元素選擇器權重較高，面板內部仍是 manipulation 不受影響。 */
+html, body { touch-action: pan-y; }
 
 /* ── v9.2：月曆改 C 版外觀（置中全螢幕卡片） ── */
 .cal-modal { position: fixed; inset: 0; z-index: 11; }

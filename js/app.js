@@ -50,12 +50,16 @@ async function renderWeight() {
       prev = await storage.latestWeightBefore(key); prevWeightCache.set(key, prev);
     }
     if (key !== toKey(currentDate)) return;          // 使用者已經滑到別天，這次結果作廢
+    // 四種情況都要寫字。v9.4 修：漏掉「有今天的體重、但沒有更早的紀錄」這一種，
+    // 因為不再先清空（那是為了版面不跳動），沒寫到的情況就會留著前一天的字不放。
     if (weight && prev) {
       const d = weight.kg - prev.kg;
       diffEl.textContent = d === 0 ? `跟 ${prev.date} 一樣` : `比 ${prev.date} ${d > 0 ? '+' : '−'}${fmtKg(Math.abs(d))} kg`;
-    } else if (!weight && prev) {
+    } else if (weight) {
+      diffEl.textContent = '這是第一筆紀錄';
+    } else if (prev) {
       diffEl.textContent = `上次 ${prev.date}：${fmtKg(prev.kg)} kg`;
-    } else if (!weight) {
+    } else {
       diffEl.textContent = '今天還沒量';
     }
   } catch (e) { console.warn(e); }
@@ -185,6 +189,9 @@ function render() {
 function shiftDay(n) {
   const card = $('mealsCard');
   card.classList.remove('slide-left', 'slide-right');
+  // 畫面沒顯示時 requestAnimationFrame 不會跑，動畫等於不存在，
+  // 日期若也綁在裡面就會整個換不動 —— 這種時候直接換，不演動畫。
+  if (document.hidden) { currentDate.setDate(currentDate.getDate() + n); watchDay(); return; }
   requestAnimationFrame(() => {
     card.classList.add(n > 0 ? 'slide-left' : 'slide-right');   // 這一幀先開始動畫
     requestAnimationFrame(() => {                               // 下一幀再換資料，避免和動畫搶同一幀
@@ -198,19 +205,37 @@ $('nextDay').onclick = () => shiftDay(1);
 $('todayBtn').onclick = () => { currentDate = new Date(); watchDay(); };
 
 // ---------- 左右滑動切換日期 ----------
-// 手指在主畫面水平滑超過 60px、垂直位移小於 50px 就換日：往左滑看後一天，往右滑看前一天
+// 手指在主畫面水平滑超過 60px 就換日：往左滑看後一天，往右滑看前一天。
+// v9.4「鎖方向」：手指橫滑時一定會帶一點上下位移，頁面就跟著上下捲，看起來像整頁在晃。
+// 所以手指一動就先判斷這一次是橫的還是直的，判成橫的就把上下捲動擋掉，畫面只會左右換卡。
 let touchX = null, touchY = null;
+let axis = null;                 // null = 還沒判斷；'x' = 橫滑換日；'y' = 直滑捲頁
+const AXIS_MIN = 6;              // 位移超過 6px 才開始判斷，太早判會被手指的抖動騙到
 document.addEventListener('touchstart', e => {
+  axis = null;
   if (!sheet.hidden || !drawer.hidden || !weightSheet.hidden || !calSheet.hidden) return;   // 任何面板開著時不切日期
   touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
 }, { passive: true });
+
+document.addEventListener('touchmove', e => {
+  if (touchX === null) return;
+  const dx = e.touches[0].clientX - touchX;
+  const dy = e.touches[0].clientY - touchY;
+  if (axis === null) {
+    if (Math.abs(dx) < AXIS_MIN && Math.abs(dy) < AXIS_MIN) return;   // 還太小，先不決定
+    axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';                   // 哪一邊走得多就是哪一邊
+  }
+  if (axis === 'x') e.preventDefault();   // 判成橫滑：不准瀏覽器順手把頁面上下捲
+}, { passive: false });                   // 要能 preventDefault，就不能宣告 passive
+
 document.addEventListener('touchend', e => {
   if (touchX === null) return;
   const dx = e.changedTouches[0].clientX - touchX;
-  const dy = e.changedTouches[0].clientY - touchY;
   touchX = touchY = null;
-  if (Math.abs(dx) < 60 || Math.abs(dy) > 50) return;
-  shiftDay(dx < 0 ? 1 : -1);      // 動畫已經包在 shiftDay 裡
+  if (axis !== 'x') { axis = null; return; }   // 這一次是在捲頁，不是換日
+  axis = null;
+  if (Math.abs(dx) < 60) return;               // 橫滑得不夠遠，當作沒滑
+  shiftDay(dx < 0 ? 1 : -1);                   // 動畫已經包在 shiftDay 裡
 }, { passive: true });
 
 // ---------- 擋掉放大 ----------
