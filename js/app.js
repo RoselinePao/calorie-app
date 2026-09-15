@@ -118,11 +118,12 @@ function drawCal() {
 function drawPeek() {
   const d = calData[calSelected];
   { const [y, m, d] = calSelected.split('-').map(Number); $('peekDate').textContent = `${y} 年 ${m} 月 ${d} 日`; }
-  $('peekKcal').textContent = d && d.count ? `${round(d.kcal)} kcal ・ ${d.count} 筆` : '沒有飲食紀錄';
-  $('peekKg').textContent = d && d.kg != null ? `體重 ${fmtKg(d.kg)} kg` : '沒量體重';
+  $('peekKcal').textContent = d && d.count ? `${round(d.kcal)} kcal ・ ${d.count} 筆` : '沒有紀錄';
+  $('peekKg').textContent = d && d.kg != null ? `${fmtKg(d.kg)} kg` : '沒量';
 }
 $('dateLabel').onclick = openCal;
 calSheet.querySelector('[data-close-cal]').onclick = closeCal;
+$('calClose').onclick = closeCal;
 $('calPrev').onclick = () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } loadCal(); };
 $('calNext').onclick = () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } loadCal(); };
 $('calToday').onclick = () => { currentDate = new Date(); watchDay(); closeCal(); };

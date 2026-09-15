@@ -199,3 +199,20 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 
 /* 關掉雙擊放大：manipulation 只保留捲動與雙指縮放，取消雙擊縮放 */
 html, body, button, .day { touch-action: manipulation; }
+
+/* ── v9.2：月曆改 C 版外觀（置中全螢幕卡片） ── */
+.cal-modal { position: fixed; inset: 0; z-index: 11; }
+.cal-card { position: absolute; left: 14px; right: 14px; top: calc(56px + env(safe-area-inset-top, 0px)); bottom: calc(40px + var(--safe-bottom));
+  background: var(--card); border: 2px solid var(--line); border-radius: 24px; box-shadow: var(--sticker), 0 14px 34px rgba(205,92,92,.3);
+  padding: 14px 16px calc(14px); display: flex; flex-direction: column; gap: 8px; overflow-y: auto; animation: popIn .2s ease-out; }
+@keyframes popIn { from { transform: translateY(16px) scale(.98); opacity: .6; } to { transform: none; opacity: 1; } }
+.cal-top { display: flex; align-items: center; justify-content: space-between; }
+.cal-title-main { font-size: 18px; font-weight: 900; color: var(--accent-dark); }
+.cal-card .cal-head { margin: 0 0 6px; }
+.cal-card .day-peek { margin-top: auto; border-top: 2px dotted var(--line); padding-top: 10px; display: grid; gap: 8px; }
+.peek-date { font-weight: 800; color: var(--text); }
+.peek-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.peek-cell { background: #fff; border: 2px solid var(--line); border-radius: 14px; padding: 8px 10px; min-height: 58px; }
+.peek-val { font-weight: 900; color: var(--accent-dark); font-size: 15px; margin-top: 2px; min-height: 1.4em; }
+.primary.full { width: 100%; margin: 0; }
+.center-btn { align-self: center; }

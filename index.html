@@ -150,11 +150,14 @@
     </div>
   </div>
 
-  <!-- 月曆面板：點日期打開，點一天看預覽，再前往 -->
-  <div id="calSheet" class="sheet" hidden>
+  <!-- 月曆（C 版外觀）：置中全螢幕卡片，點日期打開，點一天看預覽，再前往 -->
+  <div id="calSheet" class="cal-modal" hidden>
     <div class="sheet-backdrop" data-close-cal></div>
-    <div class="sheet-panel">
-      <div class="sheet-handle"></div>
+    <div class="cal-card">
+      <div class="cal-top">
+        <b class="cal-title-main">選一天</b>
+        <button id="calClose" class="icon-btn small-btn" aria-label="關閉">✕</button>
+      </div>
       <div class="cal-head">
         <button id="calPrev" class="icon-btn small-btn" aria-label="上個月">&lsaquo;</button>
         <b id="calTitle">2026 年 9 月</b>
@@ -163,12 +166,13 @@
       <div id="calGrid" class="cal"></div>
       <div class="cal-legend"><i></i>有紀錄 ・ 外框＝今天 ・ 實心＝選到的日子</div>
       <div class="day-peek">
-        <div id="peekDate" class="muted small"></div>
-        <div class="peek-row"><span id="peekKcal">—</span><span id="peekKg">—</span></div>
-        <div class="row gap">
-          <button id="calToday" class="tool-btn">回到今天</button>
-          <button id="calGo" class="primary">前往這一天</button>
+        <div id="peekDate" class="peek-date"></div>
+        <div class="peek-grid">
+          <div class="peek-cell"><div class="muted small">熱量</div><div id="peekKcal" class="peek-val">—</div></div>
+          <div class="peek-cell"><div class="muted small">體重</div><div id="peekKg" class="peek-val">—</div></div>
         </div>
+        <button id="calGo" class="primary full">前往這一天</button>
+        <button id="calToday" class="link-btn center-btn">回到今天</button>
       </div>
     </div>
   </div>
