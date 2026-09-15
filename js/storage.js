@@ -73,6 +73,13 @@ function makeLocalBackend() {
     async removeWeight(date) { const w = readJSON(WEIGHTS_KEY, {}); delete w[date]; writeJSON(WEIGHTS_KEY, w); notifyDays(); },
     async latestWeightBefore(date) { return Object.values(readJSON(WEIGHTS_KEY, {})).filter(x => x.date < date).sort((a, b) => b.date.localeCompare(a.date))[0] || null; },
     async allWeights() { return Object.values(readJSON(WEIGHTS_KEY, {})); },
+    // 月摘要：{ 'YYYY-MM-DD': { kcal, count, kg } }，給月曆用
+    async monthSummary(ym) {
+      const out = {};
+      for (const e of readLocal()) if (e.date.startsWith(ym)) { const o = out[e.date] ||= { kcal: 0, count: 0, kg: null }; o.kcal += e.kcal || 0; o.count++; }
+      for (const w of Object.values(readJSON(WEIGHTS_KEY, {}))) if (w.date.startsWith(ym)) (out[w.date] ||= { kcal: 0, count: 0, kg: null }).kg = w.kg;
+      return out;
+    },
     // 找不到回報（本機模式只記在裝置上）
     async reportMissing(query) { writeJSON(MISSING_KEY, [...readJSON(MISSING_KEY, []), { query, ts: Date.now() }]); },
     // 帳號（本機模式沒有這些功能，給空動作讓畫面不會出錯）
@@ -166,6 +173,16 @@ async function makeCloudBackend(config) {
       const snap = await fs.getDocs(q); return snap.empty ? null : snap.docs[0].data();
     },
     async allWeights() { const snap = await fs.getDocs(weightsCol()); return snap.docs.map(d => d.data()); },
+    async monthSummary(ym) {
+      if (!uid) return {};
+      const out = {};
+      const lo = ym + '-01', hi = ym + '-31';
+      const es = await fs.getDocs(fs.query(entriesCol(), fs.where('date', '>=', lo), fs.where('date', '<=', hi)));
+      es.docs.forEach(d => { const e = d.data(); const o = out[e.date] ||= { kcal: 0, count: 0, kg: null }; o.kcal += e.kcal || 0; o.count++; });
+      const ws = await fs.getDocs(fs.query(weightsCol(), fs.where('date', '>=', lo), fs.where('date', '<=', hi)));
+      ws.docs.forEach(d => { const w = d.data(); (out[w.date] ||= { kcal: 0, count: 0, kg: null }).kg = w.kg; });
+      return out;
+    },
     // 找不到回報：寫到頂層 missing 集合，Roseline 在 Firebase 後台看得到
     async reportMissing(query) {
       await fs.addDoc(fs.collection(db, 'missing'), { query, uid, email, ts: Date.now(), date: new Date().toISOString().slice(0, 10) });

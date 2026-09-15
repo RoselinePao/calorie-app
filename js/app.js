@@ -81,6 +81,53 @@ $('weightSave').onclick = async () => {
 $('weightDelete').onclick = async () => { prevWeightCache.clear(); await storage.removeWeight(toKey(currentDate)); closeWeightSheet(); toast('已刪除今天的體重'); };
 $('weightInput').onkeydown = e => { if (e.key === 'Enter') $('weightSave').click(); };
 
+// ---------- 月曆：點日期打開，點一天看預覽，再前往 ----------
+const calSheet = $('calSheet');
+let calYear = 0, calMonth = 0, calSelected = '', calData = {};
+const ymKey = (y, m) => `${y}-${pad(m + 1)}`;
+async function openCal() {
+  calYear = currentDate.getFullYear(); calMonth = currentDate.getMonth(); calSelected = toKey(currentDate);
+  calSheet.hidden = false;
+  await loadCal();
+}
+function closeCal() { calSheet.hidden = true; }
+async function loadCal() {
+  $('calTitle').textContent = `${calYear} 年 ${calMonth + 1} 月`;
+  drawCal();                                          // 先畫格子（沒有小點），資料回來再畫一次
+  try { calData = await storage.monthSummary(ymKey(calYear, calMonth)); } catch (e) { console.warn(e); calData = {}; }
+  drawCal(); drawPeek();
+}
+function drawCal() {
+  const grid = $('calGrid'); grid.innerHTML = '';
+  for (const d of ['日', '一', '二', '三', '四', '五', '六']) { const el = document.createElement('div'); el.className = 'dow'; el.textContent = d; grid.appendChild(el); }
+  const first = new Date(calYear, calMonth, 1).getDay();
+  const days = new Date(calYear, calMonth + 1, 0).getDate();
+  const todayKey = toKey(new Date());
+  for (let i = 0; i < first; i++) { const b = document.createElement('div'); b.className = 'day blank'; grid.appendChild(b); }
+  for (let d = 1; d <= days; d++) {
+    const key = `${calYear}-${pad(calMonth + 1)}-${pad(d)}`;
+    const b = document.createElement('button'); b.className = 'day'; b.textContent = d;
+    if (key === todayKey) b.classList.add('today');
+    if (key === calSelected) b.classList.add('sel');
+    if (key > todayKey) b.classList.add('future');
+    if (calData[key]) b.insertAdjacentHTML('beforeend', '<i></i>');
+    b.onclick = () => { calSelected = key; drawCal(); drawPeek(); };
+    grid.appendChild(b);
+  }
+}
+function drawPeek() {
+  const d = calData[calSelected];
+  { const [y, m, d] = calSelected.split('-').map(Number); $('peekDate').textContent = `${y} 年 ${m} 月 ${d} 日`; }
+  $('peekKcal').textContent = d && d.count ? `${round(d.kcal)} kcal ・ ${d.count} 筆` : '沒有飲食紀錄';
+  $('peekKg').textContent = d && d.kg != null ? `體重 ${fmtKg(d.kg)} kg` : '沒量體重';
+}
+$('dateLabel').onclick = openCal;
+calSheet.querySelector('[data-close-cal]').onclick = closeCal;
+$('calPrev').onclick = () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } loadCal(); };
+$('calNext').onclick = () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } loadCal(); };
+$('calToday').onclick = () => { currentDate = new Date(); watchDay(); closeCal(); };
+$('calGo').onclick = () => { const [y, m, d] = calSelected.split('-').map(Number); currentDate = new Date(y, m - 1, d); watchDay(); closeCal(); };
+
 // ---------- 側邊選單（漢堡） ----------
 const drawer = $('drawer');
 $('menuBtn').onclick = () => { drawer.hidden = false; };
@@ -142,7 +189,7 @@ $('todayBtn').onclick = () => { currentDate = new Date(); watchDay(); };
 // 手指在主畫面水平滑超過 60px、垂直位移小於 50px 就換日：往左滑看後一天，往右滑看前一天
 let touchX = null, touchY = null;
 document.addEventListener('touchstart', e => {
-  if (!sheet.hidden || !drawer.hidden || !weightSheet.hidden) return;   // 任何面板開著時不切日期
+  if (!sheet.hidden || !drawer.hidden || !weightSheet.hidden || !calSheet.hidden) return;   // 任何面板開著時不切日期
   touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
 }, { passive: true });
 document.addEventListener('touchend', e => {

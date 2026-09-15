@@ -177,3 +177,22 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 .weight-big { min-width: 120px; }                   /* '--' 與 '52.35' 寬度不同，先固定寬 */
 .tool-btn { display: inline-flex; align-items: center; justify-content: center; text-align: center; }
 .drawer .tools .tool-btn { flex: 1 1 45%; min-height: 44px; }
+
+/* ── v9：月曆（A 入口 + C 預覽） ── */
+.date-btn { border: 2px dashed var(--line); background: #fff; border-radius: 12px; padding: 3px 12px; color: var(--text); }
+.date-btn::after { content: ' ▾'; color: var(--accent-dark); font-size: 12px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 8px; font-size: 16px; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; font-variant-numeric: tabular-nums; }
+.dow { text-align: center; font-size: 11px; color: var(--muted); font-weight: 700; padding-bottom: 2px; }
+.day { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 12px;
+  font-weight: 700; font-size: 14px; background: #fff; border: 2px solid transparent; color: var(--text); padding: 0; }
+.day.blank { background: transparent; pointer-events: none; }
+.day.future { color: #d6b3b8; }
+.day.today { border-color: var(--accent); }
+.day.sel { background: var(--accent); color: #fff; }
+.day i { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; border-radius: 50%; background: var(--accent-dark); }
+.day.sel i { background: #fff; }
+.cal-legend { font-size: 11px; color: var(--muted); margin-top: 8px; display: flex; align-items: center; gap: 4px; }
+.cal-legend i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-dark); display: inline-block; }
+.day-peek { border-top: 2px dotted var(--line); margin-top: 10px; padding-top: 8px; }
+.peek-row { display: flex; justify-content: space-between; font-weight: 800; color: var(--accent-dark); margin: 4px 0 2px; min-height: 1.4em; }

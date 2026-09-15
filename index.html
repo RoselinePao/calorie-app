@@ -18,7 +18,7 @@
     <button id="prevDay" class="icon-btn" aria-label="前一天">&lsaquo;</button>
     <div class="date-block">
       <img class="mascot mascot-hero" src="./assets/pig-hero.png" alt="" onerror="this.hidden=true">
-      <div id="dateLabel" class="date-label">2026-09-14</div>
+      <button id="dateLabel" class="date-label date-btn" aria-label="打開月曆">2026-09-14</button>
       <button id="todayBtn" class="link-btn">回到今天</button>
     </div>
     <button id="nextDay" class="icon-btn" aria-label="後一天">&rsaquo;</button>
@@ -145,6 +145,29 @@
         <div class="row gap">
           <button id="customBack" class="tool-btn">返回</button>
           <button id="customConfirm" class="primary">加入</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 月曆面板：點日期打開，點一天看預覽，再前往 -->
+  <div id="calSheet" class="sheet" hidden>
+    <div class="sheet-backdrop" data-close-cal></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <div class="cal-head">
+        <button id="calPrev" class="icon-btn small-btn" aria-label="上個月">&lsaquo;</button>
+        <b id="calTitle">2026 年 9 月</b>
+        <button id="calNext" class="icon-btn small-btn" aria-label="下個月">&rsaquo;</button>
+      </div>
+      <div id="calGrid" class="cal"></div>
+      <div class="cal-legend"><i></i>有紀錄 ・ 外框＝今天 ・ 實心＝選到的日子</div>
+      <div class="day-peek">
+        <div id="peekDate" class="muted small"></div>
+        <div class="peek-row"><span id="peekKcal">—</span><span id="peekKg">—</span></div>
+        <div class="row gap">
+          <button id="calToday" class="tool-btn">回到今天</button>
+          <button id="calGo" class="primary">前往這一天</button>
         </div>
       </div>
     </div>
