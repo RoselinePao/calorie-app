@@ -196,3 +196,6 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 .cal-legend i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-dark); display: inline-block; }
 .day-peek { border-top: 2px dotted var(--line); margin-top: 10px; padding-top: 8px; }
 .peek-row { display: flex; justify-content: space-between; font-weight: 800; color: var(--accent-dark); margin: 4px 0 2px; min-height: 1.4em; }
+
+/* 關掉雙擊放大：manipulation 只保留捲動與雙指縮放，取消雙擊縮放 */
+html, body, button, .day { touch-action: manipulation; }
