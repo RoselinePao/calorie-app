@@ -43,10 +43,12 @@ async function renderWeight() {
   $('weightVal').textContent = weight ? fmtKg(weight.kg) : '--';
   $('weightBtn').textContent = weight ? '修改' : '記錄體重';
   const diffEl = $('weightDiff');
-  diffEl.textContent = '';
   try {
     let prev = prevWeightCache.get(key);
-    if (prev === undefined) { prev = await storage.latestWeightBefore(key); prevWeightCache.set(key, prev); }
+    if (prev === undefined) {
+      if (!diffEl.textContent.trim()) diffEl.textContent = ' ';   // 佔位，高度不變
+      prev = await storage.latestWeightBefore(key); prevWeightCache.set(key, prev);
+    }
     if (key !== toKey(currentDate)) return;          // 使用者已經滑到別天，這次結果作廢
     if (weight && prev) {
       const d = weight.kg - prev.kg;

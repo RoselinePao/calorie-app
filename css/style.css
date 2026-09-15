@@ -171,3 +171,9 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 .weight-big { font-size: 30px; font-weight: 900; color: var(--accent-dark); line-height: 1.1; }
 .weight-input-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .weight-input { font-size: 28px; font-weight: 800; text-align: center; margin: 0; }
+
+/* ── v8.2：預留高度避免跳動；按鈕文字置中 ── */
+#weightDiff { min-height: 1.4em; }                 /* 那行小字永遠佔一行高度，內容晚到也不跳 */
+.weight-big { min-width: 120px; }                   /* '--' 與 '52.35' 寬度不同，先固定寬 */
+.tool-btn { display: inline-flex; align-items: center; justify-content: center; text-align: center; }
+.drawer .tools .tool-btn { flex: 1 1 45%; min-height: 44px; }
