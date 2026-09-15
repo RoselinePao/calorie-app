@@ -37,6 +37,7 @@ function watchDay() {
 
 // ---------- 體重卡 ----------
 const fmtKg = n => Number(n).toFixed(2);
+const prevWeightCache = new Map();   // 日期 → 上一次體重，避免每次重畫都去雲端查
 async function renderWeight() {
   const key = toKey(currentDate);
   $('weightVal').textContent = weight ? fmtKg(weight.kg) : '--';
@@ -44,7 +45,9 @@ async function renderWeight() {
   const diffEl = $('weightDiff');
   diffEl.textContent = '';
   try {
-    const prev = await storage.latestWeightBefore(key);
+    let prev = prevWeightCache.get(key);
+    if (prev === undefined) { prev = await storage.latestWeightBefore(key); prevWeightCache.set(key, prev); }
+    if (key !== toKey(currentDate)) return;          // 使用者已經滑到別天，這次結果作廢
     if (weight && prev) {
       const d = weight.kg - prev.kg;
       diffEl.textContent = d === 0 ? `跟 ${prev.date} 一樣` : `比 ${prev.date} ${d > 0 ? '+' : '−'}${fmtKg(Math.abs(d))} kg`;
@@ -69,10 +72,11 @@ weightSheet.querySelector('[data-close-weight]').onclick = closeWeightSheet;
 $('weightSave').onclick = async () => {
   const kg = Number($('weightInput').value);
   if (!(kg >= 20 && kg <= 300)) { toast('請輸入 20 到 300 之間的公斤數'); return; }
+  prevWeightCache.clear();
   await storage.saveWeight(toKey(currentDate), Math.round(kg * 100) / 100);   // 只留兩位小數
   closeWeightSheet(); toast(`已記錄 ${fmtKg(kg)} kg`);
 };
-$('weightDelete').onclick = async () => { await storage.removeWeight(toKey(currentDate)); closeWeightSheet(); toast('已刪除今天的體重'); };
+$('weightDelete').onclick = async () => { prevWeightCache.clear(); await storage.removeWeight(toKey(currentDate)); closeWeightSheet(); toast('已刪除今天的體重'); };
 $('weightInput').onkeydown = e => { if (e.key === 'Enter') $('weightSave').click(); };
 
 // ---------- 側邊選單（漢堡） ----------
@@ -147,9 +151,10 @@ document.addEventListener('touchend', e => {
   if (Math.abs(dx) < 60 || Math.abs(dy) > 50) return;
   const main = $('appMain');
   main.classList.remove('slide-left', 'slide-right');
-  void main.offsetWidth;                            // 重新觸發動畫
-  main.classList.add(dx < 0 ? 'slide-left' : 'slide-right');
-  shiftDay(dx < 0 ? 1 : -1);
+  requestAnimationFrame(() => {
+    main.classList.add(dx < 0 ? 'slide-left' : 'slide-right');   // 這一幀先開始動畫
+    requestAnimationFrame(() => shiftDay(dx < 0 ? 1 : -1));       // 下一幀再換資料，避免和動畫搶同一幀
+  });
 }, { passive: true });
 
 // ---------- 目標熱量 ----------
