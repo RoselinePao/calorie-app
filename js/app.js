@@ -17,7 +17,8 @@ let picked = null;
 let multiplier = 1;
 let entries = [];            // 目前顯示這一天的紀錄
 let myFoods = [];            // 使用者自己存的食物
-let unsubDay = null, unsubSettings = null, unsubMyFoods = null;
+let unsubDay = null, unsubSettings = null, unsubMyFoods = null, unsubWeight = null;
+let weight = null;           // 目前這一天的體重紀錄 { date, kg, ts } 或 null
 let user = null;
 
 function toast(msg) {
@@ -30,7 +31,55 @@ function toast(msg) {
 function watchDay() {
   if (unsubDay) unsubDay();
   unsubDay = storage.subscribeDay(toKey(currentDate), list => { entries = list; render(); });
+  if (unsubWeight) unsubWeight();
+  unsubWeight = storage.subscribeWeight(toKey(currentDate), w => { weight = w; renderWeight(); });
 }
+
+// ---------- 體重卡 ----------
+const fmtKg = n => Number(n).toFixed(2);
+async function renderWeight() {
+  const key = toKey(currentDate);
+  $('weightVal').textContent = weight ? fmtKg(weight.kg) : '--';
+  $('weightBtn').textContent = weight ? '修改' : '記錄體重';
+  const diffEl = $('weightDiff');
+  diffEl.textContent = '';
+  try {
+    const prev = await storage.latestWeightBefore(key);
+    if (weight && prev) {
+      const d = weight.kg - prev.kg;
+      diffEl.textContent = d === 0 ? `跟 ${prev.date} 一樣` : `比 ${prev.date} ${d > 0 ? '+' : '−'}${fmtKg(Math.abs(d))} kg`;
+    } else if (!weight && prev) {
+      diffEl.textContent = `上次 ${prev.date}：${fmtKg(prev.kg)} kg`;
+    } else if (!weight) {
+      diffEl.textContent = '今天還沒量';
+    }
+  } catch (e) { console.warn(e); }
+}
+const weightSheet = $('weightSheet');
+function openWeightSheet() {
+  weightSheet.hidden = false;
+  $('weightSheetDate').textContent = toKey(currentDate);
+  $('weightInput').value = weight ? fmtKg(weight.kg) : '';
+  $('weightDelete').hidden = !weight;
+  setTimeout(() => $('weightInput').focus(), 50);
+}
+function closeWeightSheet() { weightSheet.hidden = true; }
+$('weightBtn').onclick = openWeightSheet;
+weightSheet.querySelector('[data-close-weight]').onclick = closeWeightSheet;
+$('weightSave').onclick = async () => {
+  const kg = Number($('weightInput').value);
+  if (!(kg >= 20 && kg <= 300)) { toast('請輸入 20 到 300 之間的公斤數'); return; }
+  await storage.saveWeight(toKey(currentDate), Math.round(kg * 100) / 100);   // 只留兩位小數
+  closeWeightSheet(); toast(`已記錄 ${fmtKg(kg)} kg`);
+};
+$('weightDelete').onclick = async () => { await storage.removeWeight(toKey(currentDate)); closeWeightSheet(); toast('已刪除今天的體重'); };
+$('weightInput').onkeydown = e => { if (e.key === 'Enter') $('weightSave').click(); };
+
+// ---------- 側邊選單（漢堡） ----------
+const drawer = $('drawer');
+$('menuBtn').onclick = () => { drawer.hidden = false; };
+$('drawerClose').onclick = () => { drawer.hidden = true; };
+drawer.querySelector('[data-close-drawer]').onclick = () => { drawer.hidden = true; };
 
 // ---------- 畫面更新 ----------
 function render() {
@@ -87,7 +136,7 @@ $('todayBtn').onclick = () => { currentDate = new Date(); watchDay(); };
 // 手指在主畫面水平滑超過 60px、垂直位移小於 50px 就換日：往左滑看後一天，往右滑看前一天
 let touchX = null, touchY = null;
 document.addEventListener('touchstart', e => {
-  if (!sheet.hidden) return;                       // 新增面板開著時不切日期
+  if (!sheet.hidden || !drawer.hidden || !weightSheet.hidden) return;   // 任何面板開著時不切日期
   touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
 }, { passive: true });
 document.addEventListener('touchend', e => {
@@ -285,6 +334,7 @@ function applyAuth(u) {
   $('authCard').hidden = !cloud || !!u;
   $('appMain').hidden = cloud && !u;
   $('addBtn').hidden = cloud && !u;
+  $('menuBtn').hidden = false;                      // 選單在登入前也可用（備份匯入、資料庫筆數）
   $('accountRow').hidden = !cloud || !u;
   if (u && !u.local) $('accountEmail').textContent = u.email;
   $('syncInfo').textContent = cloud ? '雲端同步：開啟' : '目前為本機模式，紀錄只存在這台裝置';

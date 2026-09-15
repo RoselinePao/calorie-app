@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
+  <button id="menuBtn" class="menu-btn" aria-label="選單">☰</button>
   <header class="topbar">
     <button id="prevDay" class="icon-btn" aria-label="前一天">&lsaquo;</button>
     <div class="date-block">
@@ -59,13 +60,33 @@
       </div>
     </section>
 
+    <section class="card weight-card">
+      <div class="summary-row">
+        <div>
+          <div class="muted">今日體重</div>
+          <div class="weight-big"><span id="weightVal">--</span> <span class="unit">kg</span></div>
+          <div id="weightDiff" class="muted small"></div>
+        </div>
+        <button id="weightBtn" class="tool-btn">記錄體重</button>
+      </div>
+    </section>
+
     <section class="card">
       <h2 class="section-title">吃了什麼</h2>
       <ul id="entryList" class="entry-list"></ul>
       <div id="emptyHint"><img class="mascot mascot-empty" src="./assets/pig-empty.png" alt="" onerror="this.hidden=true"><p class="muted empty">還沒有紀錄，點右下角的豬豬加一筆。</p></div>
     </section>
 
-    <section class="card tools">
+
+  </main>
+
+
+  <!-- 側邊選單（漢堡）：備份、帳號、同步狀態 -->
+  <div id="drawer" class="drawer" hidden>
+    <div class="drawer-backdrop" data-close-drawer></div>
+    <aside class="drawer-panel">
+      <div class="drawer-head"><span class="section-title">設定與備份</span><button id="drawerClose" class="icon-btn small-btn" aria-label="關閉">✕</button></div>
+    <section class="tools">
       <button id="exportBtn" class="tool-btn">匯出備份</button>
       <label class="tool-btn">匯入備份<input id="importFile" type="file" accept="application/json" hidden></label>
       <div id="accountRow" class="row account" hidden>
@@ -75,7 +96,8 @@
       <div class="muted small" id="syncInfo"></div>
       <div class="muted small" id="dbInfo">食物資料庫載入中…</div>
     </section>
-  </main>
+    </aside>
+  </div>
 
   <button id="addBtn" class="fab" aria-label="新增"><img src="./assets/pig-fab.png" alt=""></button>
 
@@ -124,6 +146,24 @@
           <button id="customBack" class="tool-btn">返回</button>
           <button id="customConfirm" class="primary">加入</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 體重輸入面板 -->
+  <div id="weightSheet" class="sheet" hidden>
+    <div class="sheet-backdrop" data-close-weight></div>
+    <div class="sheet-panel">
+      <div class="sheet-handle"></div>
+      <div class="pick-name">今天體重</div>
+      <div class="muted small" id="weightSheetDate"></div>
+      <div class="weight-input-row">
+        <input id="weightInput" class="search weight-input" type="number" inputmode="decimal" step="0.01" min="20" max="300" placeholder="例如 52.35">
+        <span class="unit">kg</span>
+      </div>
+      <div class="row gap">
+        <button id="weightDelete" class="tool-btn">刪除</button>
+        <button id="weightSave" class="primary">儲存</button>
       </div>
     </div>
   </div>

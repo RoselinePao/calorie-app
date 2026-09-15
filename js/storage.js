@@ -11,6 +11,7 @@ const LOCAL_KEY = 'calorie-app:entries';
 const SETTINGS_KEY = 'calorie-app:settings';
 const MYFOODS_KEY = 'calorie-app:myfoods';
 const MISSING_KEY = 'calorie-app:missing';
+const WEIGHTS_KEY = 'calorie-app:weights';   // { 'YYYY-MM-DD': { date, kg, ts } }
 const DEFAULT_SETTINGS = { goalKcal: 1800 };
 
 // ---------- 共用：本機讀寫 ----------
@@ -46,7 +47,7 @@ function makeLocalBackend() {
   const dayListeners = new Set();
   const foodListeners = new Set();
   const byDate = date => readLocal().filter(e => e.date === date).sort((a, b) => a.ts - b.ts);
-  const notifyDays = () => dayListeners.forEach(l => l.cb(byDate(l.date)));
+  const notifyDays = () => dayListeners.forEach(l => l.cb(l.kind === 'w' ? (readJSON(WEIGHTS_KEY, {})[l.date] || null) : byDate(l.date)));
   const notifyFoods = () => foodListeners.forEach(cb => cb(readJSON(MYFOODS_KEY, [])));
   return {
     mode: 'local',
@@ -66,6 +67,12 @@ function makeLocalBackend() {
     onMyFoods(cb) { foodListeners.add(cb); cb(readJSON(MYFOODS_KEY, [])); return () => foodListeners.delete(cb); },
     async addMyFood(food) { const f = shapeMyFood(food); writeJSON(MYFOODS_KEY, [...readJSON(MYFOODS_KEY, []), f]); notifyFoods(); return f; },
     async removeMyFood(id) { writeJSON(MYFOODS_KEY, readJSON(MYFOODS_KEY, []).filter(f => f.id !== id)); notifyFoods(); },
+    // 體重（每天一筆，以日期為 key）
+    subscribeWeight(date, cb) { const l = { date, cb, kind: 'w' }; dayListeners.add(l); cb(readJSON(WEIGHTS_KEY, {})[date] || null); return () => dayListeners.delete(l); },
+    async saveWeight(date, kg) { const w = readJSON(WEIGHTS_KEY, {}); w[date] = { date, kg: Number(kg), ts: Date.now() }; writeJSON(WEIGHTS_KEY, w); notifyDays(); },
+    async removeWeight(date) { const w = readJSON(WEIGHTS_KEY, {}); delete w[date]; writeJSON(WEIGHTS_KEY, w); notifyDays(); },
+    async latestWeightBefore(date) { return Object.values(readJSON(WEIGHTS_KEY, {})).filter(x => x.date < date).sort((a, b) => b.date.localeCompare(a.date))[0] || null; },
+    async allWeights() { return Object.values(readJSON(WEIGHTS_KEY, {})); },
     // 找不到回報（本機模式只記在裝置上）
     async reportMissing(query) { writeJSON(MISSING_KEY, [...readJSON(MISSING_KEY, []), { query, ts: Date.now() }]); },
     // 帳號（本機模式沒有這些功能，給空動作讓畫面不會出錯）
@@ -92,16 +99,19 @@ async function makeCloudBackend(config) {
   const entriesCol = () => fs.collection(db, 'users', uid, 'entries');
   const foodsCol = () => fs.collection(db, 'users', uid, 'foods');
   const settingsDoc = () => fs.doc(db, 'users', uid, 'meta', 'settings');
+  const weightsCol = () => fs.collection(db, 'users', uid, 'weights');
 
   async function migrateLocal() {
     const local = readLocal();
     const myLocal = readJSON(MYFOODS_KEY, []);
-    if (!local.length && !myLocal.length) return 0;
+    const wLocal = Object.values(readJSON(WEIGHTS_KEY, {}));
+    if (!local.length && !myLocal.length && !wLocal.length) return 0;
     const batch = fs.writeBatch(db);
     for (const e of local) batch.set(fs.doc(entriesCol(), e.id), e);
     for (const f of myLocal) batch.set(fs.doc(foodsCol(), f.id), f);
+    for (const w of wLocal) batch.set(fs.doc(weightsCol(), w.date), w);
     await batch.commit();
-    writeLocal([]); writeJSON(MYFOODS_KEY, []);
+    writeLocal([]); writeJSON(MYFOODS_KEY, []); writeJSON(WEIGHTS_KEY, {});
     return local.length + myLocal.length;
   }
 
@@ -144,6 +154,18 @@ async function makeCloudBackend(config) {
     },
     async addMyFood(food) { const f = shapeMyFood(food); fs.setDoc(fs.doc(foodsCol(), f.id), f); return f; },
     async removeMyFood(id) { fs.deleteDoc(fs.doc(foodsCol(), id)); },
+    // 體重：users/{uid}/weights/{date}
+    subscribeWeight(date, cb) {
+      if (!uid) { cb(null); return () => {}; }
+      return fs.onSnapshot(fs.doc(weightsCol(), date), snap => cb(snap.exists() ? snap.data() : null), err => console.error('讀取體重失敗', err));
+    },
+    async saveWeight(date, kg) { fs.setDoc(fs.doc(weightsCol(), date), { date, kg: Number(kg), ts: Date.now() }); },
+    async removeWeight(date) { fs.deleteDoc(fs.doc(weightsCol(), date)); },
+    async latestWeightBefore(date) {
+      const q = fs.query(weightsCol(), fs.where('date', '<', date), fs.orderBy('date', 'desc'), fs.limit(1));
+      const snap = await fs.getDocs(q); return snap.empty ? null : snap.docs[0].data();
+    },
+    async allWeights() { const snap = await fs.getDocs(weightsCol()); return snap.docs.map(d => d.data()); },
     // 找不到回報：寫到頂層 missing 集合，Roseline 在 Firebase 後台看得到
     async reportMissing(query) {
       await fs.addDoc(fs.collection(db, 'missing'), { query, uid, email, ts: Date.now(), date: new Date().toISOString().slice(0, 10) });
@@ -169,13 +191,14 @@ export const storage = new Proxy({}, { get: (_, k) => backend[k] });
 
 // 備份格式（兩種做法共用）
 export async function exportAll() {
-  return { version: 3, exportedAt: new Date().toISOString(), settings: backend.getSettings(), entries: await backend.allEntries() };
+  return { version: 4, exportedAt: new Date().toISOString(), settings: backend.getSettings(), entries: await backend.allEntries(), weights: await backend.allWeights() };
 }
 export async function importAll(data) {
   if (!data || !Array.isArray(data.entries)) throw new Error('備份檔格式不對');
   const existing = new Set((await backend.allEntries()).map(e => e.id));
   let n = 0;
   for (const e of data.entries) { if (existing.has(e.id)) continue; await backend.put(e); n++; }
+  if (Array.isArray(data.weights)) for (const w of data.weights) if (w && w.date && w.kg != null) await backend.saveWeight(w.date, w.kg);
   if (data.settings) await backend.saveSettings(data.settings);
   return n;
 }
