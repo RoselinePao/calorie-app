@@ -141,11 +141,13 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 .remain-label.crowned, #remainLabel.crowned { color: var(--accent-dark); font-weight: 800; font-size: 13px; }
 
 /* ── 左右滑動換日的小動畫 ── */
-#appMain { will-change: transform; }
+/* v9.3：動畫從 #appMain（整個畫面）改掛到「吃了什麼」這張卡，
+   熱量卡、體重卡、頂欄與背景一律原地不動，只換裡面的數字。 */
 @keyframes slideL { from { transform: translate3d(24px,0,0); } to { transform: translate3d(0,0,0); } }
 @keyframes slideR { from { transform: translate3d(-24px,0,0); } to { transform: translate3d(0,0,0); } }
-#appMain.slide-left { animation: slideL .18s ease-out; }
-#appMain.slide-right { animation: slideR .18s ease-out; }
+#mealsCard { will-change: transform; }
+#mealsCard.slide-left { animation: slideL .18s ease-out; }
+#mealsCard.slide-right { animation: slideR .18s ease-out; }
 /* 右下角豬 v2 陰影已畫進圖裡，取消 CSS 陰影 */
 .fab { filter: none; }
 
@@ -197,8 +199,12 @@ main { padding: 4px 14px 0; display: grid; gap: 14px; }
 .day-peek { border-top: 2px dotted var(--line); margin-top: 10px; padding-top: 8px; }
 .peek-row { display: flex; justify-content: space-between; font-weight: 800; color: var(--accent-dark); margin: 4px 0 2px; min-height: 1.4em; }
 
-/* 關掉雙擊放大：manipulation 只保留捲動與雙指縮放，取消雙擊縮放 */
-html, body, button, .day { touch-action: manipulation; }
+/* 關掉雙擊放大：manipulation 只保留捲動，取消雙擊縮放。
+   v9.3：改成掛在所有元素上 —— touch-action 不會繼承，只寫在 body 上時，
+   點到中間的 div、img、文字仍可能放大。真正擋住 iOS 的是 app.js 裡攔手勢事件那段。 */
+* { touch-action: manipulation; }
+/* 橫向不留鬆緊帶，滑動換日時整頁不會被拉著跑 */
+html, body { overscroll-behavior-x: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 /* ── v9.2：月曆改 C 版外觀（置中全螢幕卡片） ── */
 .cal-modal { position: fixed; inset: 0; z-index: 11; }

@@ -71,7 +71,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section id="mealsCard" class="card">
       <h2 class="section-title">吃了什麼</h2>
       <ul id="entryList" class="entry-list"></ul>
       <div id="emptyHint"><img class="mascot mascot-empty" src="./assets/pig-empty.png" alt="" onerror="this.hidden=true"><p class="muted empty">還沒有紀錄，點右下角的豬豬加一筆。</p></div>
@@ -93,8 +93,10 @@
         <span class="muted small">已登入 <b id="accountEmail"></b></span>
         <button id="signOutBtn" class="link-btn">登出</button>
       </div>
+      <button id="updateBtn" class="tool-btn">檢查更新</button>
       <div class="muted small" id="syncInfo"></div>
       <div class="muted small" id="dbInfo">食物資料庫載入中…</div>
+      <div class="muted small" id="verInfo">版本 —</div>
     </section>
     </aside>
   </div>

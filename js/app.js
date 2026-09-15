@@ -181,7 +181,18 @@ function render() {
 }
 
 // ---------- 日期切換 ----------
-function shiftDay(n) { currentDate.setDate(currentDate.getDate() + n); watchDay(); }
+// v9.3：只有「吃了什麼」那張卡會滑進來，上面的熱量卡、體重卡與背景原地不動。
+function shiftDay(n) {
+  const card = $('mealsCard');
+  card.classList.remove('slide-left', 'slide-right');
+  requestAnimationFrame(() => {
+    card.classList.add(n > 0 ? 'slide-left' : 'slide-right');   // 這一幀先開始動畫
+    requestAnimationFrame(() => {                               // 下一幀再換資料，避免和動畫搶同一幀
+      currentDate.setDate(currentDate.getDate() + n);
+      watchDay();
+    });
+  });
+}
 $('prevDay').onclick = () => shiftDay(-1);
 $('nextDay').onclick = () => shiftDay(1);
 $('todayBtn').onclick = () => { currentDate = new Date(); watchDay(); };
@@ -199,13 +210,26 @@ document.addEventListener('touchend', e => {
   const dy = e.changedTouches[0].clientY - touchY;
   touchX = touchY = null;
   if (Math.abs(dx) < 60 || Math.abs(dy) > 50) return;
-  const main = $('appMain');
-  main.classList.remove('slide-left', 'slide-right');
-  requestAnimationFrame(() => {
-    main.classList.add(dx < 0 ? 'slide-left' : 'slide-right');   // 這一幀先開始動畫
-    requestAnimationFrame(() => shiftDay(dx < 0 ? 1 : -1));       // 下一幀再換資料，避免和動畫搶同一幀
-  });
+  shiftDay(dx < 0 ? 1 : -1);      // 動畫已經包在 shiftDay 裡
 }, { passive: true });
+
+// ---------- 擋掉放大 ----------
+// iOS Safari 從 iOS 10 起故意忽略 viewport 的 user-scalable=no，CSS 的 touch-action 也擋不乾淨，
+// 所以這裡直接攔手勢事件：雙指縮放（gesture*）與雙擊放大（兩次 touchend 很近又很快）。
+['gesturestart', 'gesturechange', 'gestureend'].forEach(t =>
+  document.addEventListener(t, e => e.preventDefault(), { passive: false })
+);
+let lastTapT = 0, lastTapX = 0, lastTapY = 0;
+document.addEventListener('touchend', e => {
+  const t = e.changedTouches[0];
+  const now = Date.now();
+  const near = Math.abs(t.clientX - lastTapX) < 40 && Math.abs(t.clientY - lastTapY) < 40;
+  // 按鈕、輸入框不擋：連按兩下 ‹ 想連退兩天是正常操作，擋掉第二下反而變成按不動。
+  // 這些控制項本來也不會觸發雙擊放大，會放大的是中間那片文字與圖。
+  const isControl = e.target.closest && e.target.closest('button, input, label, a, select, textarea');
+  if (!isControl && now - lastTapT < 350 && near) e.preventDefault();   // 第二下不放行，就不會放大
+  lastTapT = now; lastTapX = t.clientX; lastTapY = t.clientY;
+}, { passive: false });
 
 // ---------- 目標熱量 ----------
 $('goalBtn').onclick = async () => {
@@ -411,6 +435,71 @@ async function boot() {
   storage.onAuth(applyAuth);
   try { const n = await loadFoods(); $('dbInfo').textContent = `食物資料庫：${n} 筆`; }
   catch { $('dbInfo').textContent = '食物資料庫載入失敗，仍可自訂輸入'; }
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  setupSW();
 }
 boot();
+
+// ---------- 新版偵測（v9.3）----------
+// 瀏覽器每次開網址都會重新導航，順手就檢查了新版；但桌面上的 PWA 是「叫回前景」，
+// 不算導航，所以永遠不會自己去看有沒有新版 —— 這就是 PWA 一直卡舊版的原因。
+// 這裡改成：主動問、問到就換、換好自動重載一次。
+let swReg = null;
+let reloading = false;
+let pendingReload = false;
+const hadController = 'serviceWorker' in navigator && !!navigator.serviceWorker.controller;
+
+// 換新版要重載畫面，但不能把正在打字的人打斷：面板開著就先記著，等面板關了或下次回到前景再換。
+function reloadForNewVersion() {
+  if (reloading) return;
+  if (!sheet.hidden || !weightSheet.hidden || !calSheet.hidden) { pendingReload = true; return; }
+  reloading = true;
+  location.reload();
+}
+
+async function setupSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    // updateViaCache:'none'：連 sw.js 自己都不准吃瀏覽器的 HTTP 快取，每次都真的問伺服器
+    swReg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+  } catch { return; }
+
+  showVersion();
+
+  // 新版守門員接手畫面時重載一次，畫面才會真的換成新的 HTML/JS。
+  // hadController 是為了避開「第一次安裝」那一次，不然初次進站會白白重載。
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return;
+    reloadForNewVersion();
+  });
+
+  checkUpdate();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (pendingReload) { reloadForNewVersion(); return; }   // 上次沒換成，這次補換
+    checkUpdate();                                          // iPhone 的 PWA 靠這行才會發現新版
+  });
+  window.addEventListener('pageshow', () => checkUpdate());
+}
+
+function checkUpdate() { if (swReg) swReg.update().catch(() => {}); }
+
+// 抽屜裡顯示目前實際跑的版本，Roseline 一看就知道 PWA 換過來了沒有
+function showVersion() {
+  const el = $('verInfo');
+  const sw = navigator.serviceWorker.controller;
+  if (!el) return;
+  if (!sw) { el.textContent = '版本：安裝中，關掉重開就會生效'; return; }
+  const ch = new MessageChannel();
+  ch.port1.onmessage = ev => { el.textContent = '版本 ' + ev.data; };
+  sw.postMessage('version', [ch.port2]);
+}
+
+$('updateBtn').onclick = async () => {
+  if (!swReg) { toast('這個瀏覽器不支援自動更新'); return; }
+  toast('檢查中…');
+  try {
+    await swReg.update();
+    if (swReg.installing || swReg.waiting) toast('有新版，正在換，馬上重開');
+    else toast('已經是最新版');
+  } catch { toast('檢查失敗，請確認網路'); }
+};
