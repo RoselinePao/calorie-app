@@ -12,6 +12,11 @@ const SETTINGS_KEY = 'calorie-app:settings';
 const MYFOODS_KEY = 'calorie-app:myfoods';
 const MISSING_KEY = 'calorie-app:missing';
 const WEIGHTS_KEY = 'calorie-app:weights';   // { 'YYYY-MM-DD': { date, kg, ts } }
+// 垃圾桶（v9.6）：刪掉的東西不會消失，而是「搬房間」到這裡，30 天後才真的清掉。
+// 刻意搬走而不是留在原地貼標籤 —— 留在原地的話，每個查詢都得記得過濾掉它，
+// 漏掉一個，刪掉的東西就會在總熱量或月曆上冒出來。搬走就沒有這個風險。
+const TRASH_KEY = 'calorie-app:trash';       // [{ tid, kind: 'entry'|'weight', deletedAt, data }]
+const TRASH_DAYS = 30;                        // 超過幾天自動清掉
 const DEFAULT_SETTINGS = { goalKcal: 1800 };
 
 // ---------- 共用：本機讀寫 ----------
@@ -21,6 +26,8 @@ const readLocal = () => readJSON(LOCAL_KEY, []);
 const writeLocal = list => writeJSON(LOCAL_KEY, list);
 const readSettingsLocal = () => ({ ...DEFAULT_SETTINGS, ...readJSON(SETTINGS_KEY, {}) });
 const writeSettingsLocal = s => writeJSON(SETTINGS_KEY, s);
+const pushTrash = item => writeJSON(TRASH_KEY, [...readJSON(TRASH_KEY, []), item]);
+const dropTrash = tid => writeJSON(TRASH_KEY, readJSON(TRASH_KEY, []).filter(t => t.tid !== tid));
 
 // 把使用者自訂的食物整理成跟資料庫一樣的形狀，搜尋層才能一視同仁
 function shapeMyFood(f) {
@@ -57,7 +64,11 @@ function makeLocalBackend() {
     subscribeDay(date, cb) { const l = { date, cb }; dayListeners.add(l); cb(byDate(date)); return () => dayListeners.delete(l); },
     async add(entry) { const saved = { ...entry, id: crypto.randomUUID(), ts: Date.now() }; writeLocal([...readLocal(), saved]); notifyDays(); return saved; },
     async put(entry) { writeLocal([...readLocal(), entry]); notifyDays(); },
-    async remove(id) { writeLocal(readLocal().filter(e => e.id !== id)); notifyDays(); },
+    async remove(id) {
+      const hit = readLocal().find(e => e.id === id);
+      if (hit) pushTrash({ tid: hit.id, kind: 'entry', deletedAt: Date.now(), data: hit });
+      writeLocal(readLocal().filter(e => e.id !== id)); notifyDays();
+    },
     async allEntries() { return readLocal(); },
     // 設定
     getSettings: readSettingsLocal,
@@ -70,9 +81,29 @@ function makeLocalBackend() {
     // 體重（每天一筆，以日期為 key）
     subscribeWeight(date, cb) { const l = { date, cb, kind: 'w' }; dayListeners.add(l); cb(readJSON(WEIGHTS_KEY, {})[date] || null); return () => dayListeners.delete(l); },
     async saveWeight(date, kg) { const w = readJSON(WEIGHTS_KEY, {}); w[date] = { date, kg: Number(kg), ts: Date.now() }; writeJSON(WEIGHTS_KEY, w); notifyDays(); },
-    async removeWeight(date) { const w = readJSON(WEIGHTS_KEY, {}); delete w[date]; writeJSON(WEIGHTS_KEY, w); notifyDays(); },
+    async removeWeight(date) {
+      const w = readJSON(WEIGHTS_KEY, {});
+      if (w[date]) pushTrash({ tid: 'w_' + date, kind: 'weight', deletedAt: Date.now(), data: w[date] });
+      delete w[date]; writeJSON(WEIGHTS_KEY, w); notifyDays();
+    },
     async latestWeightBefore(date) { return Object.values(readJSON(WEIGHTS_KEY, {})).filter(x => x.date < date).sort((a, b) => b.date.localeCompare(a.date))[0] || null; },
     async allWeights() { return Object.values(readJSON(WEIGHTS_KEY, {})); },
+    // 垃圾桶
+    async listTrash() { return readJSON(TRASH_KEY, []).sort((a, b) => b.deletedAt - a.deletedAt); },
+    async restoreTrash(tid) {
+      const item = readJSON(TRASH_KEY, []).find(t => t.tid === tid);
+      if (!item) return null;
+      if (item.kind === 'weight') { const w = readJSON(WEIGHTS_KEY, {}); w[item.data.date] = item.data; writeJSON(WEIGHTS_KEY, w); }
+      else writeLocal([...readLocal(), item.data]);
+      dropTrash(tid); notifyDays(); return item;
+    },
+    async purgeTrash(tid) { dropTrash(tid); },
+    async purgeOldTrash(before) {
+      const keep = readJSON(TRASH_KEY, []).filter(t => t.deletedAt >= before);
+      const n = readJSON(TRASH_KEY, []).length - keep.length;
+      if (n) writeJSON(TRASH_KEY, keep);
+      return n;
+    },
     // 月摘要：{ 'YYYY-MM-DD': { kcal, count, kg } }，給月曆用
     async monthSummary(ym) {
       const out = {};
@@ -107,6 +138,7 @@ async function makeCloudBackend(config) {
   const foodsCol = () => fs.collection(db, 'users', uid, 'foods');
   const settingsDoc = () => fs.doc(db, 'users', uid, 'meta', 'settings');
   const weightsCol = () => fs.collection(db, 'users', uid, 'weights');
+  const trashCol = () => fs.collection(db, 'users', uid, 'trash');
 
   async function migrateLocal() {
     const local = readLocal();
@@ -141,7 +173,14 @@ async function makeCloudBackend(config) {
     },
     async add(entry) { const saved = { ...entry, id: crypto.randomUUID(), ts: Date.now() }; fs.setDoc(fs.doc(entriesCol(), saved.id), saved); return saved; },
     async put(entry) { fs.setDoc(fs.doc(entriesCol(), entry.id), entry); },
-    async remove(id) { fs.deleteDoc(fs.doc(entriesCol(), id)); },
+    // 先把東西抄進垃圾桶，確定抄好了才刪原本的。順序反過來的話，
+    // 中途斷線就會變成「原本的沒了、垃圾桶也沒有」——東西就真的不見了。
+    async remove(id) {
+      const ref = fs.doc(entriesCol(), id);
+      const snap = await fs.getDoc(ref);
+      if (snap.exists()) await fs.setDoc(fs.doc(trashCol(), id), { tid: id, kind: 'entry', deletedAt: Date.now(), data: snap.data() });
+      await fs.deleteDoc(ref);
+    },
     async allEntries() { const snap = await fs.getDocs(entriesCol()); return snap.docs.map(d => d.data()); },
     // 設定
     getSettings: () => settingsCache,
@@ -167,7 +206,35 @@ async function makeCloudBackend(config) {
       return fs.onSnapshot(fs.doc(weightsCol(), date), snap => cb(snap.exists() ? snap.data() : null), err => console.error('讀取體重失敗', err));
     },
     async saveWeight(date, kg) { fs.setDoc(fs.doc(weightsCol(), date), { date, kg: Number(kg), ts: Date.now() }); },
-    async removeWeight(date) { fs.deleteDoc(fs.doc(weightsCol(), date)); },
+    async removeWeight(date) {
+      const ref = fs.doc(weightsCol(), date);
+      const snap = await fs.getDoc(ref);
+      if (snap.exists()) await fs.setDoc(fs.doc(trashCol(), 'w_' + date), { tid: 'w_' + date, kind: 'weight', deletedAt: Date.now(), data: snap.data() });
+      await fs.deleteDoc(ref);
+    },
+    // 垃圾桶：users/{uid}/trash/{tid}。規則的 {document=**} 已經涵蓋它，不用改規則。
+    async listTrash() {
+      if (!uid) return [];
+      const snap = await fs.getDocs(trashCol());
+      return snap.docs.map(d => d.data()).sort((a, b) => b.deletedAt - a.deletedAt);
+    },
+    async restoreTrash(tid) {
+      const ref = fs.doc(trashCol(), tid);
+      const snap = await fs.getDoc(ref);
+      if (!snap.exists()) return null;
+      const item = snap.data();
+      if (item.kind === 'weight') await fs.setDoc(fs.doc(weightsCol(), item.data.date), item.data);
+      else await fs.setDoc(fs.doc(entriesCol(), item.data.id), item.data);
+      await fs.deleteDoc(ref);                 // 放回去成功才把垃圾桶那份拿掉
+      return item;
+    },
+    async purgeTrash(tid) { await fs.deleteDoc(fs.doc(trashCol(), tid)); },
+    async purgeOldTrash(before) {
+      if (!uid) return 0;
+      const snap = await fs.getDocs(fs.query(trashCol(), fs.where('deletedAt', '<', before)));
+      for (const d of snap.docs) await fs.deleteDoc(d.ref);
+      return snap.size;
+    },
     async latestWeightBefore(date) {
       const q = fs.query(weightsCol(), fs.where('date', '<', date), fs.orderBy('date', 'desc'), fs.limit(1));
       const snap = await fs.getDocs(q); return snap.empty ? null : snap.docs[0].data();
@@ -205,6 +272,7 @@ export async function initStorage() {
   return backend;
 }
 export const storage = new Proxy({}, { get: (_, k) => backend[k] });
+export const trashDays = TRASH_DAYS;
 
 // 備份格式（兩種做法共用）
 export async function exportAll() {

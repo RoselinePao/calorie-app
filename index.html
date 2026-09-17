@@ -93,6 +93,7 @@
         <span class="muted small">已登入 <b id="accountEmail"></b></span>
         <button id="signOutBtn" class="link-btn">登出</button>
       </div>
+      <button id="trashBtn" class="tool-btn">垃圾桶</button>
       <button id="updateBtn" class="tool-btn">檢查更新</button>
       <div class="muted small" id="syncInfo"></div>
       <div class="muted small" id="dbInfo">食物資料庫載入中…</div>
@@ -197,13 +198,27 @@
     </div>
   </div>
 
+  <!-- 垃圾桶：刪掉的東西先放這裡，可以復原，30 天後自動清掉 -->
+  <div id="trashSheet" class="cal-modal" hidden>
+    <div class="sheet-backdrop" data-close-trash></div>
+    <div class="cal-card">
+      <div class="cal-top">
+        <b class="cal-title-main">垃圾桶</b>
+        <button id="trashClose" class="icon-btn small-btn" aria-label="關閉">✕</button>
+      </div>
+      <div class="muted small">刪掉的東西會先放在這裡，<b id="trashDays">30</b> 天後自動清掉。</div>
+      <ul id="trashList" class="trash-list"></ul>
+      <div id="trashEmpty" class="trash-empty muted" hidden>垃圾桶是空的。</div>
+    </div>
+  </div>
+
   <!-- 刪除前的確認視窗：所有會永久刪掉東西的動作都先經過這裡 -->
   <div id="confirmSheet" class="confirm-modal" hidden>
     <div class="sheet-backdrop" data-close-confirm></div>
     <div class="confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
       <div id="confirmTitle" class="confirm-title">要刪掉嗎？</div>
       <div id="confirmDetail" class="confirm-detail"></div>
-      <div class="confirm-note">刪掉之後救不回來。</div>
+      <div id="confirmNote" class="confirm-note"></div>
       <div class="confirm-actions">
         <button id="confirmCancel" class="confirm-cancel">取消</button>
         <button id="confirmOk" class="confirm-danger">刪除</button>

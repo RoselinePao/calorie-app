@@ -252,3 +252,20 @@ html, body { touch-action: pan-y; }
 .confirm-actions button { flex: 1; min-height: 48px; border-radius: 16px; font-weight: 800; font-size: 15px; }
 .confirm-cancel { border: 3px solid var(--accent); background: #fff; color: var(--accent-dark); }
 .confirm-danger { border: 3px solid var(--danger); background: var(--danger); color: #fff; }
+
+
+/* ── v9.6：垃圾桶 ── */
+.trash-list { list-style: none; margin: 10px 0 0; padding: 0; overflow-y: auto; flex: 1; }
+.trash-item {
+  border: 2px solid var(--line); border-radius: 16px; background: #fff;
+  padding: 10px 12px; margin-bottom: 10px;
+}
+.trash-what { font-weight: 800; color: var(--text); word-break: break-word; }
+.trash-when { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.trash-acts { display: flex; gap: 8px; margin-top: 10px; }
+.trash-acts button { flex: 1; min-height: 42px; border-radius: 13px; font-weight: 800; font-size: 14px; }
+.trash-restore { border: 3px solid var(--accent); background: var(--accent); color: #fff; }
+.trash-purge { border: 2px solid var(--line); background: #fff; color: var(--muted); }
+.trash-empty { text-align: center; padding: 28px 0; }
+/* 抽屜裡的垃圾桶鈕：有東西時把數字標出來 */
+#trashBtn.has-items { border-color: var(--accent); color: var(--accent-dark); font-weight: 800; }

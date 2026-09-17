@@ -2,7 +2,7 @@
 // 不直接碰 localStorage 或 Firebase，一律透過 storage.js 與 foods.js。
 // v3 新增：最近吃過 / 常吃 快速鍵、我的食物、找不到回報。
 
-import { initStorage, storage, exportAll, importAll } from './storage.js';
+import { initStorage, storage, exportAll, importAll, trashDays } from './storage.js';
 import { loadFoods, searchFoods, getFood } from './foods.js';
 
 // ---------- 小工具 ----------
@@ -34,11 +34,12 @@ function toast(msg) {
 const confirmSheet = $('confirmSheet');
 let confirmResolve = null;
 
-function askConfirm({ title, detail = '', okText = '刪除' }) {
+function askConfirm({ title, detail = '', okText = '刪除', note = `可以在 ☰ 的垃圾桶裡找回來。` }) {
   closeConfirm(false);                       // 前一個還開著就當作取消，不留下解不掉的承諾
   $('confirmTitle').textContent = title;
   $('confirmDetail').textContent = detail;
   $('confirmDetail').hidden = !detail;
+  $('confirmNote').textContent = note;       // v9.6：有了垃圾桶，說明文字要跟著改，不然視窗在說謊
   $('confirmOk').textContent = okText;
   confirmSheet.hidden = false;
   return new Promise(res => { confirmResolve = res; });
@@ -57,6 +58,77 @@ $('confirmOk').onclick = () => closeConfirm(true);
 confirmSheet.querySelector('[data-close-confirm]').onclick = () => closeConfirm(false);
 // 點背景、按 Esc 都算取消：安全的那個答案要最容易選到
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeConfirm(false); });
+
+// ---------- 垃圾桶（v9.6） ----------
+// 刪掉的東西搬到這裡，可以復原，超過 trashDays 天自動清掉。
+const trashSheet = $('trashSheet');
+
+function trashWhat(t) {
+  if (t.kind === 'weight') return `體重　${t.data.date}　${fmtKg(t.data.kg)} kg`;
+  return [t.data.name, t.data.portionLabel, `${round(t.data.kcal)} kcal`].filter(Boolean).join('　');
+}
+function whenText(ms) {
+  const mins = Math.floor((Date.now() - ms) / 60000);
+  if (mins < 1) return '剛剛刪掉';
+  if (mins < 60) return `${mins} 分鐘前刪掉`;
+  if (mins < 60 * 24) return `${Math.floor(mins / 60)} 小時前刪掉`;
+  return `${Math.floor(mins / 1440)} 天前刪掉`;
+}
+
+async function refreshTrashBadge() {
+  try {
+    const n = (await storage.listTrash()).length;
+    $('trashBtn').textContent = n ? `垃圾桶（${n}）` : '垃圾桶';
+    $('trashBtn').classList.toggle('has-items', n > 0);
+  } catch (e) { console.warn(e); }
+}
+
+async function openTrash() {
+  trashSheet.hidden = false;
+  $('trashDays').textContent = trashDays;
+  await drawTrash();
+}
+function closeTrash() { trashSheet.hidden = true; }
+
+async function drawTrash() {
+  const ul = $('trashList');
+  let items = [];
+  try { items = await storage.listTrash(); } catch (e) { console.warn(e); }
+  ul.innerHTML = '';
+  $('trashEmpty').hidden = items.length > 0;
+  for (const t of items) {
+    const li = document.createElement('li');
+    li.className = 'trash-item';
+    li.innerHTML = `
+      <div class="trash-what">${esc(trashWhat(t))}</div>
+      <div class="trash-when">${esc(whenText(t.deletedAt))}</div>
+      <div class="trash-acts">
+        <button class="trash-restore">復原</button>
+        <button class="trash-purge">永久刪除</button>
+      </div>`;
+    li.querySelector('.trash-restore').onclick = async () => {
+      await storage.restoreTrash(t.tid);
+      toast(t.kind === 'weight' ? '體重已復原' : '已放回原本那天');
+      await drawTrash(); await refreshTrashBadge();
+    };
+    li.querySelector('.trash-purge').onclick = async () => {
+      // 這一步才是真的刪掉，所以說明文字要換成不騙人的版本
+      const ok = await askConfirm({
+        title: '永久刪除？', detail: trashWhat(t),
+        note: '這次是真的刪掉，救不回來。', okText: '永久刪除',
+      });
+      if (!ok) return;
+      await storage.purgeTrash(t.tid);
+      toast('已永久刪除');
+      await drawTrash(); await refreshTrashBadge();
+    };
+    ul.appendChild(li);
+  }
+}
+
+$('trashBtn').onclick = openTrash;
+$('trashClose').onclick = closeTrash;
+trashSheet.querySelector('[data-close-trash]').onclick = closeTrash;
 
 // ---------- 訂閱某一天 ----------
 function watchDay() {
@@ -117,7 +189,7 @@ $('weightDelete').onclick = async () => {
   const key = toKey(currentDate);
   const what = weight ? `${key}　${fmtKg(weight.kg)} kg` : key;
   if (!await askConfirm({ title: '要刪掉這天的體重嗎？', detail: what })) return;
-  prevWeightCache.clear(); await storage.removeWeight(key); closeWeightSheet(); toast('已刪除今天的體重');
+  prevWeightCache.clear(); await storage.removeWeight(key); closeWeightSheet(); toast('體重已移到垃圾桶'); refreshTrashBadge();
 };
 $('weightInput').onkeydown = e => { if (e.key === 'Enter') $('weightSave').click(); };
 
@@ -171,7 +243,7 @@ $('calGo').onclick = () => { const [y, m, d] = calSelected.split('-').map(Number
 
 // ---------- 側邊選單（漢堡） ----------
 const drawer = $('drawer');
-$('menuBtn').onclick = () => { drawer.hidden = false; };
+$('menuBtn').onclick = () => { drawer.hidden = false; refreshTrashBadge(); };
 $('drawerClose').onclick = () => { drawer.hidden = true; };
 drawer.querySelector('[data-close-drawer]').onclick = () => { drawer.hidden = true; };
 
@@ -218,7 +290,7 @@ function render() {
     li.querySelector('.del').onclick = async () => {
       const what = [e.name, e.portionLabel, `${round(e.kcal)} kcal`].filter(Boolean).join('　');
       if (!await askConfirm({ title: '要刪掉這一筆嗎？', detail: what })) return;
-      await storage.remove(e.id); toast('已刪除');
+      await storage.remove(e.id); toast('已移到垃圾桶'); refreshTrashBadge();
     };
     list.appendChild(li);
   }
@@ -253,7 +325,7 @@ let axis = null;                 // null = 還沒判斷；'x' = 橫滑換日；'
 const AXIS_MIN = 6;              // 位移超過 6px 才開始判斷，太早判會被手指的抖動騙到
 document.addEventListener('touchstart', e => {
   axis = null;
-  if (!sheet.hidden || !drawer.hidden || !weightSheet.hidden || !calSheet.hidden || !confirmSheet.hidden) return;   // 任何面板開著時不切日期
+  if (!sheet.hidden || !drawer.hidden || !weightSheet.hidden || !calSheet.hidden || !confirmSheet.hidden || !trashSheet.hidden) return;   // 任何面板開著時不切日期
   touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
 }, { passive: true });
 
@@ -501,6 +573,10 @@ async function boot() {
   try { const n = await loadFoods(); $('dbInfo').textContent = `食物資料庫：${n} 筆`; }
   catch { $('dbInfo').textContent = '食物資料庫載入失敗，仍可自訂輸入'; }
   setupSW();
+  // 開機時清掉超過期限的垃圾，再把數字顯示出來。
+  // 清理失敗不該影響 APP 啟動，所以吞掉錯誤只留警告。
+  try { await storage.purgeOldTrash(Date.now() - trashDays * 86400000); } catch (e) { console.warn('清理垃圾桶失敗', e); }
+  refreshTrashBadge();
 }
 boot();
 
@@ -516,7 +592,7 @@ const hadController = 'serviceWorker' in navigator && !!navigator.serviceWorker.
 // 換新版要重載畫面，但不能把正在打字的人打斷：面板開著就先記著，等面板關了或下次回到前景再換。
 function reloadForNewVersion() {
   if (reloading) return;
-  if (!sheet.hidden || !weightSheet.hidden || !calSheet.hidden || !confirmSheet.hidden) { pendingReload = true; return; }
+  if (!sheet.hidden || !weightSheet.hidden || !calSheet.hidden || !confirmSheet.hidden || !trashSheet.hidden) { pendingReload = true; return; }
   reloading = true;
   location.reload();
 }
