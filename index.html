@@ -197,6 +197,20 @@
     </div>
   </div>
 
+  <!-- 刪除前的確認視窗：所有會永久刪掉東西的動作都先經過這裡 -->
+  <div id="confirmSheet" class="confirm-modal" hidden>
+    <div class="sheet-backdrop" data-close-confirm></div>
+    <div class="confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div id="confirmTitle" class="confirm-title">要刪掉嗎？</div>
+      <div id="confirmDetail" class="confirm-detail"></div>
+      <div class="confirm-note">刪掉之後救不回來。</div>
+      <div class="confirm-actions">
+        <button id="confirmCancel" class="confirm-cancel">取消</button>
+        <button id="confirmOk" class="confirm-danger">刪除</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
 
   <script type="module" src="./js/app.js"></script>

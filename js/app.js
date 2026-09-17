@@ -27,6 +27,37 @@ function toast(msg) {
   clearTimeout(toast.t); toast.t = setTimeout(() => (el.hidden = true), 2200);
 }
 
+// ---------- 刪除前的確認（v9.5） ----------
+// 所有會永久刪掉東西的動作都走這裡。用法：
+//   if (!await askConfirm({ title: '要刪掉嗎？', detail: '大麥克 520 kcal' })) return;
+// 回傳 true 才繼續。detail 會把「要刪的是哪一個」顯示出來，避免按錯列還照刪。
+const confirmSheet = $('confirmSheet');
+let confirmResolve = null;
+
+function askConfirm({ title, detail = '', okText = '刪除' }) {
+  closeConfirm(false);                       // 前一個還開著就當作取消，不留下解不掉的承諾
+  $('confirmTitle').textContent = title;
+  $('confirmDetail').textContent = detail;
+  $('confirmDetail').hidden = !detail;
+  $('confirmOk').textContent = okText;
+  confirmSheet.hidden = false;
+  return new Promise(res => { confirmResolve = res; });
+}
+
+function closeConfirm(answer) {
+  if (!confirmResolve) return;
+  confirmSheet.hidden = true;
+  const done = confirmResolve;
+  confirmResolve = null;                     // 先清掉再呼叫，避免重入
+  done(answer);
+}
+
+$('confirmCancel').onclick = () => closeConfirm(false);
+$('confirmOk').onclick = () => closeConfirm(true);
+confirmSheet.querySelector('[data-close-confirm]').onclick = () => closeConfirm(false);
+// 點背景、按 Esc 都算取消：安全的那個答案要最容易選到
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeConfirm(false); });
+
 // ---------- 訂閱某一天 ----------
 function watchDay() {
   if (unsubDay) unsubDay();
@@ -82,7 +113,12 @@ $('weightSave').onclick = async () => {
   await storage.saveWeight(toKey(currentDate), Math.round(kg * 100) / 100);   // 只留兩位小數
   closeWeightSheet(); toast(`已記錄 ${fmtKg(kg)} kg`);
 };
-$('weightDelete').onclick = async () => { prevWeightCache.clear(); await storage.removeWeight(toKey(currentDate)); closeWeightSheet(); toast('已刪除今天的體重'); };
+$('weightDelete').onclick = async () => {
+  const key = toKey(currentDate);
+  const what = weight ? `${key}　${fmtKg(weight.kg)} kg` : key;
+  if (!await askConfirm({ title: '要刪掉這天的體重嗎？', detail: what })) return;
+  prevWeightCache.clear(); await storage.removeWeight(key); closeWeightSheet(); toast('已刪除今天的體重');
+};
 $('weightInput').onkeydown = e => { if (e.key === 'Enter') $('weightSave').click(); };
 
 // ---------- 月曆：點日期打開，點一天看預覽，再前往 ----------
@@ -179,7 +215,11 @@ function render() {
       </div>
       <div class="entry-kcal">${round(e.kcal)} kcal</div>
       <button class="del" aria-label="刪除">✕</button>`;
-    li.querySelector('.del').onclick = async () => { await storage.remove(e.id); toast('已刪除'); };
+    li.querySelector('.del').onclick = async () => {
+      const what = [e.name, e.portionLabel, `${round(e.kcal)} kcal`].filter(Boolean).join('　');
+      if (!await askConfirm({ title: '要刪掉這一筆嗎？', detail: what })) return;
+      await storage.remove(e.id); toast('已刪除');
+    };
     list.appendChild(li);
   }
 }
@@ -213,7 +253,7 @@ let axis = null;                 // null = 還沒判斷；'x' = 橫滑換日；'
 const AXIS_MIN = 6;              // 位移超過 6px 才開始判斷，太早判會被手指的抖動騙到
 document.addEventListener('touchstart', e => {
   axis = null;
-  if (!sheet.hidden || !drawer.hidden || !weightSheet.hidden || !calSheet.hidden) return;   // 任何面板開著時不切日期
+  if (!sheet.hidden || !drawer.hidden || !weightSheet.hidden || !calSheet.hidden || !confirmSheet.hidden) return;   // 任何面板開著時不切日期
   touchX = e.touches[0].clientX; touchY = e.touches[0].clientY;
 }, { passive: true });
 
@@ -476,7 +516,7 @@ const hadController = 'serviceWorker' in navigator && !!navigator.serviceWorker.
 // 換新版要重載畫面，但不能把正在打字的人打斷：面板開著就先記著，等面板關了或下次回到前景再換。
 function reloadForNewVersion() {
   if (reloading) return;
-  if (!sheet.hidden || !weightSheet.hidden || !calSheet.hidden) { pendingReload = true; return; }
+  if (!sheet.hidden || !weightSheet.hidden || !calSheet.hidden || !confirmSheet.hidden) { pendingReload = true; return; }
   reloading = true;
   location.reload();
 }

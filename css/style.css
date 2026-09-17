@@ -227,3 +227,28 @@ html, body { touch-action: pan-y; }
 .peek-val { font-weight: 900; color: var(--accent-dark); font-size: 15px; margin-top: 2px; min-height: 1.4em; }
 .primary.full { width: 100%; margin: 0; }
 .center-btn { align-self: center; }
+
+
+/* ── v9.5：刪除確認視窗 ──
+   z-index 15：壓在所有面板（10/11/12）上面，但在提示訊息（20）下面。
+   「取消」故意做得比「刪除」顯眼、好按 —— 不小心按到時，安全的那個要比較容易選中。 */
+.confirm-modal { position: fixed; inset: 0; z-index: 15; }
+.confirm-card {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(320px, calc(100vw - 48px));
+  background: var(--card); border: 2px solid var(--line); border-radius: 24px;
+  box-shadow: var(--sticker), 0 16px 38px rgba(205, 92, 92, .34);
+  padding: 20px 20px 16px; text-align: center; animation: confirmPop .16s ease-out;
+}
+@keyframes confirmPop { from { transform: translate(-50%, -50%) scale(.94); opacity: .5; } }
+.confirm-title { font-size: 17px; font-weight: 900; color: var(--accent-dark); line-height: 1.45; }
+.confirm-detail {
+  margin: 10px 0 0; padding: 10px 12px; background: #fff;
+  border: 2px solid var(--line); border-radius: 14px;
+  font-weight: 800; color: var(--text); font-size: 15px; line-height: 1.5; word-break: break-word;
+}
+.confirm-note { margin-top: 10px; font-size: 12px; color: var(--muted); }
+.confirm-actions { display: flex; gap: 10px; margin-top: 16px; }
+.confirm-actions button { flex: 1; min-height: 48px; border-radius: 16px; font-weight: 800; font-size: 15px; }
+.confirm-cancel { border: 3px solid var(--accent); background: #fff; color: var(--accent-dark); }
+.confirm-danger { border: 3px solid var(--danger); background: var(--danger); color: #fff; }
